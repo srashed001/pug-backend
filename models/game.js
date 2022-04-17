@@ -1,495 +1,493 @@
 "use strict";
 
 const db = require("../db");
-const bcrypt = require("bcrypt");
 
 const {
   NotFoundError,
-  BadRequestError,
-  UnauthError,
   InactiveError,
-  ExpressError,
+  BadRequestError,
 } = require("../expressError");
 
-const { sqlForPartialUpdate } = require("../helper/sql");
+const {
+  sqlForPartialUpdate,
+  sqlForGameFilters,
+  sqlForGameComments,
+} = require("../helper/sql");
 
-const { BCRYPT_WORK_FACTOR, SECRET_KEY } = require("../config");
+function NotFoundMsgGame(gameId) {
+  return `No game: ${gameId}`;
+}
+
+function InactiveMsgGame(gameId) {
+  return `Game inactive: ${gameId}`;
+}
+function NotFoundMsgUser(username) {
+  return `No user: ${username}`;
+}
+
+function InactiveMsgUser(username) {
+  return `User inactive: ${username}`;
+}
 
 class Game {
   /** Given a gameId, return data about game.
    *
-   * Returns { id, title, description, date, time, address, city, state, createdOn, createdBy, players }
-   *   where players is [username, ...]
+   * @param {number} gameId
+   * @returns {object} { id,
+   *                  title,
+   *                  description,
+   *                  date,
+   *                  time,
+   *                  address,
+   *                  city,
+   *                  state,
+   *                  createdOn,
+   *                  createdBy,
+   *                  players,
+   *                  daysDiff }
    *
+   *    where daysDiff is the difference in days between game date and today
+   * active games have is_active status of true
    * Throws NotFoundError if game not found.
    **/
   static async get(gameId) {
-      const gameRes = await db.query(
-          `SELECT g.id,
-                  g.title,
-                  g.description, 
-                  g.game_date AS "date", 
-                  g.game_time AS "time", 
-                  g.game_address AS "address", 
-                  g.game_city AS "city", 
-                  g.game_state AS "state", 
-                  g.created_on AS "createdOn", 
-                  g.created_by AS "createdBy", 
-                  g.is_active AS "isActive",
-                  arr_agg(ug.username) AS "players"
-            FROM games AS g
-            JOIN users_games AS ug
-            ON g.id = ug.game_id
-            WHERE id = $1`, 
-            [gameId]
-      )
+    const gameRes = await db.query(
+      `SELECT id,
+                title,
+                description, 
+                game_date AS "date", 
+                game_time AS "time", 
+                game_address AS "address", 
+                game_city AS "city", 
+                game_state AS "state", 
+                created_on AS "createdOn", 
+                created_by AS "createdBy", 
+                is_active AS "isActive",
+                game_date::date - current_date::date AS "daysDiff"
+        FROM games
+        WHERE id = $1`,
+      [gameId]
+    );
 
-      const game = gameRes.rows[0];
+    const game = gameRes.rows[0];
 
-      if(!game) throw new NotFoundError(`No game: ${gameId}`)
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
-    //   const gamePlayers = await db.query(
-    //       `SELECT username
-    //       FROM users_games
-    //       WHERE game_id = $1`,
-    //       [gameId]
-    //   )
+    if (!game.isActive) throw new InactiveError(InactiveMsgGame(gameId));
 
-    //   game.players = gamePlayers.rows.map(g=>g.username)
+    delete game.isActive;
 
-      return game
-
+    return game;
   }
-//   /** Find all active users.
-//    *
-//    * Returns [{ username, first_name, last_name, currCity, currState, profile_img, is_private }, ...]
-//    **/
 
-//   static async findAll() {
-//     const usersRes = await db.query(`
-//         SELECT username,
-//             first_name AS "firstName", 
-//             last_name AS "lastName", 
-//             current_city AS "currentCity", 
-//             current_state AS "currentState", 
-//             profile_img AS "profileImg", 
-//             is_private AS "is_private"
-//         FROM users
-//         WHERE is_active = true
-//       `);
+  /**
+   * Find all games (optional filter on searchFilters, isActive, gameStatus )
+   *
+   * @param {string} query preliminary query detailing columns selected
+   * @param {object} searchFilters (optional filter on searchFilters
+   *  - date
+   *  = city
+   *  - state
+   *  - host {username} (WHERE created_by = host)
+   *  - joined {username} (returns all games a user has joined)
+   * @param {boolean} isActive
+   *  - true (WHERE is_active = true)
+   *  = false (WHERE is_active = false)
+   * @param {string} gameStatus
+   *  - 'pending' returns games whose game_date has not passed
+   *  - 'resolved' returns games whose game_date has passed
+   *  - undefined returns all games regardless of game_date
+   *  Throw bad request if any other value is passed
+   *
+   * @returns {array} [{id,
+   *                    title,
+   *                    description,
+   *                    date,
+   *                    time,
+   *                    city,
+   *                    state,
+   *                    createdOn,
+   *                    createdBy,
+   *                    players,
+   *                    daysDiff,
+   *                    isActive}....]
+   *  where players = count of active players
+   *  where daysDiff = count of days until game_date (neg number indicates how many days have passed since game_date)
+   *
+   */
+  static async findAll(searchFilters = {}, isActive, gameStatus) {
+    let findAllQuery = `SELECT g.id,
+                        g.title,
+                        g.description, 
+                        g.game_date AS "date", 
+                        g.game_time AS "time", 
+                        g.game_address AS "address", 
+                        g.game_city AS "city", 
+                        g.game_state AS "state", 
+                        g.created_on AS "createdOn", 
+                        g.created_by AS "createdBy", 
+                        (SELECT (COUNT(u.username) FILTER (WHERE u.is_active = true))::integer AS "players" 
+                        FROM users AS u 
+                        LEFT JOIN users_games AS ug 
+                        ON u.username = ug.username 
+                        WHERE ug.game_id = g.id),
+                        (g.game_date::date - current_date::date) AS "daysDiff",
+                        g.is_active AS "isActive"
+                      FROM games AS g
+                      LEFT JOIN users_games AS ug
+                      ON g.id = ug.game_id
+                      LEFT JOIN users AS u 
+                      on ug.username = u.username`;
 
-//     return usersRes.rows;
-//   }
+    const [query, queryValues] = sqlForGameFilters(
+      findAllQuery,
+      searchFilters,
+      isActive,
+      gameStatus
+    );
+    const gamesRes = await db.query(query, queryValues);
 
-//   /** authenticate user with username, password if user is active.
-//    *
-//    * Returns {  username,
-//    *            first_name,
-//    *            last_name,
-//    *            birthDate,
-//    *            currCity,
-//    *            currState,
-//    *            profileImg,
-//    *            createdOn,
-//    *            isPrivate,
-//    *            email,
-//    *            phoneNumber,
-//    *            is_admin,
-//    *            isFollowing,
-//    *            isFollowed }
-//    *
-//    *  where isFollowing/isFollowed is [username, ...]
-//    *
-//    * Throws UnauthorizedError is user not found or wrong password.
-//    *
-//    * Throws InactiveError if user profile is currently disabled
-//    **/
+    return gamesRes.rows;
+  }
 
-//   static async authenticate(username, password) {
-//     const userRes = await db.query(
-//       `SELECT username, 
-//             first_name AS "firstName",
-//             last_name AS "lastName", 
-//             birth_date AS "birthDate", 
-//             current_city AS "currentCity",
-//             current_state AS "currentState", 
-//             profile_img AS "profileImg",
-//             created_on AS "createdOn",
-//             is_private AS "isPrivate",
-//             email, 
-//             password, 
-//             is_admin AS "isAdmin",
-//             phone_number AS "phoneNumber",
-//             is_active AS "isActive"
-//         FROM users 
-//         WHERE username = $1`,
-//       [username]
-//     );
+  /** Create a game (from data), update db, return new game data.
+   *
+   * @param {object} data { title,
+   *                        description,
+   *                         date,
+   *                        time,
+   *                        address,
+   *                        city,
+   *                        state,
+   *                        createdBy }
+   * @returns {object} { id,
+   *                     title,
+   *                     description,
+   *                     date,
+   *                     time,
+   *                     address,
+   *                     city,
+   *                     state,
+   *                     createdOn,
+   *                     createdBy,
+   *                     daysDiff }
+   **/
 
-//     const user = userRes.rows[0];
+  static async create(data) {
+    const result = await db.query(
+      `INSERT INTO games (title, 
+                          description, 
+                          game_date, 
+                          game_time, 
+                          game_address, 
+                          game_city, 
+                          game_state, 
+                          created_by )
+           VALUES  ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING  id,
+                      title,
+                      description, 
+                      game_date AS "date", 
+                      game_time AS "time", 
+                      game_address AS "address", 
+                      game_city AS "city", 
+                      game_state AS "state", 
+                      created_on AS "createdOn", 
+                      created_by AS "createdBy", 
+                      (game_date::date - current_date::date) AS "daysDiff"`,
+      [
+        data.title,
+        data.description,
+        data.date,
+        data.time,
+        data.address,
+        data.city,
+        data.state,
+        data.createdBy,
+      ]
+    );
+    let game = result.rows[0];
 
-//     if (user) {
-//       if (!user.isActive) throw new InactiveError();
+    return game;
+  }
 
-//       const isValid = await bcrypt.compare(password, user.password);
-//       if (isValid) {
-//         delete user.password, delete user.isActive;
+  /** Update game data with gameId and `data`.
+   *
+   * This is a "partial update" --- it's fine if data doesn't contain
+   * all the fields; this only changes provided ones.
+   *
+   * Data can include:
+   * @param {object} data { title, description, date, time, address, city, state }
+   * @param {number} gameId
+   * @returns {object} { id,
+   *                     title,
+   *                     description,
+   *                     date,
+   *                     time,
+   *                     address,
+   *                     city,
+   *                     state,
+   *                     createdOn,
+   *                     createdBy,
+   *                     daysDiff }
+   *
+   * Throws NotFoundError if not found.
+   * Throws BadRequestError if invalid fields are provided
+   */
 
-//         const followingRes = await db.query(
-//           `SELECT f.followed_user 
-//           FROM is_following AS f
-//           LEFT JOIN users AS u
-//           ON f.followed_user = u.username
-//           WHERE f.following_user = $1 AND u.is_active = true`,
-//           [username]
-//         );
+  static async update(gameId, data) {
+    const jsToSql = {
+      title: "title",
+      description: "description",
+      date: "game_date",
+      time: "game_time",
+      address: "game_address",
+      city: "game_city",
+      state: "game_state",
+    };
 
-//         const followedRes = await db.query(
-//           `SELECT f.following_user 
-//           FROM is_following AS f
-//           LEFT JOIN users AS u
-//           ON f.following_user = u.username
-//           WHERE followed_user = $1 AND u.is_active = true`,
-//           [username]
-//         );
+    const { setCols, values } = sqlForPartialUpdate(data, jsToSql);
 
-//         user.isFollowing = followingRes.rows.map((r) => r.followed_user);
-//         user.isFollowed = followedRes.rows.map((r) => r.following_user);
+    const gameIdx = "$" + (values.length + 1);
 
-//         return user;
-//       }
-//     }
+    const querySql = `UPDATE games
+                              SET ${setCols}
+                              WHERE id = ${gameIdx}
+                              RETURNING  id,
+                                         title,
+                                         description, 
+                                         game_date AS "date", 
+                                         game_time AS "time", 
+                                         game_address AS "address", 
+                                         game_city AS "city", 
+                                         game_state AS "state", 
+                                         created_on AS "createdOn", 
+                                         created_by AS "createdBy", 
+                                         is_active AS "isActive",
+                                         (game_date::date - current_date::date) AS "daysDiff"`;
 
-//     throw new UnauthError("Invalid username/password");
-//   }
+    const result = await db.query(querySql, [...values, gameId]);
+    const game = result.rows[0];
 
-//   /** Register user with data.
-//    *
-//    * Returns {  username,
-//    *            first_name,
-//    *            last_name,
-//    *            birthDate,
-//    *            currCity,
-//    *            currState,
-//    *            profileImg,
-//    *            isPrivate,
-//    *            email,
-//    *            phoneNumber,
-//    *            is_admin,
-//    *            isFollowing,
-//    *            isFollowed }
-//    *
-//    *  where isFollowing/isFollowed is []
-//    *
-//    * Throws BadRequestError on duplicates.
-//    **/
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
-//   static async register({
-//     username,
-//     firstName,
-//     lastName,
-//     birthDate,
-//     currentCity,
-//     currentState,
-//     phoneNumber,
-//     profileImg,
-//     password,
-//     email,
-//   }) {
-//     const duplicateCheck = await db.query(
-//       `SELECT username 
-//               FROM users
-//               WHERE username = $1`,
-//       [username]
-//     );
+    if (!game.isActive) throw new InactiveError(InactiveMsgGame(gameId));
+    delete game.isActive;
 
-//     if (duplicateCheck.rows[0])
-//       throw new BadRequestError(`Username ${username} is already taken`);
+    return game;
+  }
 
-//     const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
+  /**
+   * Deactivates game with gameId
+   * equivalent to deleting game,
+   * however, this allows user to archive game and reactivate
+   *
+   * @param {number} gameId
+   * @returns {undefined}
+   *
+   * Throws NotFoundError if gameId does not exist
+   */
+  static async deactivate(gameId) {
+    const result = await db.query(
+      `UPDATE games
+         SET is_active = false
+         WHERE id = $1
+         RETURNING id`,
+      [gameId]
+    );
+    const game = result.rows[0];
 
-//     const userRes = await db.query(
-//       `INSERT INTO users 
-//               (username, first_name, last_name, birth_date, current_city, current_state, phone_number, profile_img, password, email)
-//               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-//               RETURNING username,
-//                         first_name AS "firstName",
-//                         last_name AS "lastName", 
-//                         birth_date AS "birthDate",
-//                         current_city AS "currentCity",
-//                         current_state AS "currentState",
-//                         profile_img AS "profileImg",
-//                         is_private AS "isPrivate",
-//                         email,
-//                         phone_number AS "phoneNumber",
-//                         created_on AS "createdOn", 
-//                         is_admin AS "isAdmin"
-//                         `,
-//       [
-//         username,
-//         firstName,
-//         lastName,
-//         birthDate,
-//         currentCity,
-//         currentState,
-//         phoneNumber,
-//         profileImg,
-//         hashedPassword,
-//         email,
-//       ]
-//     );
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
+  }
+  /**
+   * Reactivates game with gameId
+   *
+   * @param {number} gameId
+   * @returns {object} { id,
+   *                     title,
+   *                     description,
+   *                     date,
+   *                     time,
+   *                     address,
+   *                     city,
+   *                     state,
+   *                     createdOn,
+   *                     createdBy,
+   *                     players,
+   *                     daysDiff }
+   *
+   * Throws NotFoundError if gameId does not exist
+   */
+  static async reactivate(gameId) {
+    const result = await db.query(
+      `UPDATE games
+         SET is_active = true
+         WHERE id = $1
+         RETURNING id, 
+                   title, 
+                   description, 
+                   game_date AS "date", 
+                   game_time AS "time", 
+                   game_address AS "address", 
+                   game_city AS "city", 
+                   game_state AS "state", 
+                   created_on AS"createdOn", 
+                   created_by AS "createdBy", 
+                   (game_date::date - current_date::date) AS "daysDiff"`,
+      [gameId]
+    );
+    const game = result.rows[0];
 
-//     const user = userRes.rows[0];
-//     user.isFollowing = [];
-//     user.isFollowed = [];
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
-//     return user;
-//   }
+    return game;
+  }
 
-//   /** Update user data with `data`.
-//    *
-//    * This is a "partial update" --- it's fine if data doesn't contain
-//    * all the fields; this only changes provided ones.
-//    *
-//    * Data can include:
-//    *   { username, firstName, lastName, birthDate, currentCity, currentState, phoneNumber, profileImg, email, isPrivate }
-//    *
-//    * Returns { username, firstName, lastName, birthDate, currentCity, currentState, phoneNumber, profileImg, email, isPrivate, isAdmin }
-//    *
-//    * Throws NotFoundError if not found.
-//    *
-//    * Throws BadRequestError if invalid fields are provided
-//    *
-//    * For security purposes this function cannot change passwords or is_admin status
-//    * Seperate functions are used for updating those properties
-//    */
+  /**Given a gameId, returns data on game comments
+   * Only return game comment data when user is_active = true
+   *
+   * @param {number} gameId
+   * @returns {array} {[{id, username, comment, createdOn} ...]}
+   *
+   * Throws NotFoundError if gameId does not exist
+   */
 
-//   static async update(username, data) {
-//     const { setCols, values } = sqlForPartialUpdate(data);
+  static async getGameComments(gameId, isGameCommentsActive, isUsersActive) {
+    const gameCheck = await db.query(
+      `SELECT is_active FROM games WHERE id = $1`,
+      [gameId]
+    );
 
-//     if (data.username) {
-//       const duplicateCheck = await db.query(
-//         "SELECT username FROM users WHERE username = $1",
-//         [data.username]
-//       );
-//       if (duplicateCheck.rows[0])
-//         throw new BadRequestError(`Username ${username} is already taken`);
-//     }
+    if (
+      typeof isGameCommentsActive !== "boolean" &&
+      typeof isGameCommentsActive !== "undefined" &&
+      isGameCommentsActive !== null
+    )
+      throw new BadRequestError(
+        "isGameCommentsActive accepts undefined, null, or boolean as valid data type"
+      );
 
-//     const usernameIdx = "$" + (values.length + 1);
+    if (
+      typeof isUsersActive !== "boolean" &&
+      typeof isUsersActive !== "undefined" &&
+      isUsersActive !== null
+    )
+      throw new BadRequestError(
+        "isUsersActive accepts undefined, null, or boolean as valid data type"
+      );
 
-//     const querySql = `UPDATE users
-//                             SET ${setCols}
-//                             WHERE username = ${usernameIdx}
-//                             RETURNING username, 
-//                                       first_name AS "firstName",
-//                                       last_name AS "lastName", 
-//                                       birth_date AS "birthDate", 
-//                                       current_city AS "currentCity",
-//                                       current_state AS "currentState", 
-//                                       phone_number AS "phoneNumber", 
-//                                       profile_img AS "profileImg", 
-//                                       created_on AS "createdOn",
-//                                       email, 
-//                                       is_private AS "isPrivate", 
-//                                       is_admin AS "isAdmin"`;
+    const game = gameCheck.rows[0];
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
-//     const result = await db.query(querySql, [...values, username]);
-//     const user = result.rows[0];
+    const gameCommentQuery = `SELECT gc.id, 
+                                     gc.username, 
+                                     gc.comment, 
+                                     gc.created_on AS "createdOn"
+                              FROM games_comments AS gc
+                              LEFT JOIN users AS u
+                              ON gc.username = u.username`;
 
-//     if (!user)
-//       throw new NotFoundError(`No active user with username: ${username}`);
+    const [query, queryValues] = sqlForGameComments(
+      gameCommentQuery,
+      gameId,
+      isGameCommentsActive,
+      isUsersActive
+    );
 
-//     const followingRes = await db.query(
-//       `SELECT f.followed_user 
-//         FROM is_following AS f
-//         LEFT JOIN users AS u
-//         ON f.followed_user = u.username
-//         WHERE f.following_user = $1 AND u.is_active = true`,
-//       [user.username]
-//     );
+    const commentsRes = await db.query(query, queryValues);
 
-//     const followedRes = await db.query(
-//       `SELECT f.following_user 
-//         FROM is_following AS f
-//         LEFT JOIN users AS u
-//         ON f.following_user = u.username
-//         WHERE followed_user = $1 AND u.is_active = true`,
-//       [user.username]
-//     );
+    return commentsRes.rows;
+  }
 
-//     user.isFollowing = followingRes.rows.map((r) => r.followed_user);
-//     user.isFollowed = followedRes.rows.map((r) => r.following_user);
+  /**Given a gameId, returns data on game players
+   *
+   * @param {number} gameId
+   * @returns {array} {[{id, username, comment, createdOn} ...]}
+   *
+   * Throws NotFoundError if gameId does not exist
+   */
 
-//     return user;
-//   }
+  static async getGamePlayers(gameId, isUserActive) {
+    const gameCheck = await db.query(
+      `SELECT is_active FROM games WHERE id = $1`,
+      [gameId]
+    );
+    const game = gameCheck.rows[0];
+    if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
-//   static async deactivate(username) {
-//     const result = await db.query(
-//       `UPDATE users
-//        SET is_active = false
-//        WHERE username = $1
-//        RETURNING username`,
-//       [username]
-//     );
-//     const user = result.rows[0];
+    if (
+      typeof isUserActive !== "boolean" &&
+      typeof isUserActive !== "undefined" &&
+      isUserActive !== null
+    )
+      throw new BadRequestError(
+        "isUserActive accepts undefined, null, or boolean as valid data type"
+      );
 
-//     if (!user)
-//       throw new NotFoundError(`No active user with username: ${username}`);
-//   }
-//   /** Updates user password`.
-//    * username and old password is required to update password
-//    *
-//    * Returns { username, firstName, lastName, birthDate, currentCity, currentState, phoneNumber, profileImg, email, isPrivate, isAdmin, createdOn }
-//    *
-//    * Throws NotFoundError if user not found.
-//    *
-//    * Throws BadRequestError if invalid credentials are provided
-//    *
-//    */
+    let query = `SELECT array_remove(array_agg(ug.username), NULL) AS "players"
+                        FROM users_games AS ug
+                        LEFT JOIN users AS u
+                        ON ug.username = u.username
+                        WHERE ug.game_id = $1`;
 
-//   static async updatePassword(username, oldPassword, newPassword) {
-//     const userRes = await db.query(
-//       `SELECT password, is_active AS "isActive"
-//           FROM users 
-//           WHERE username = $1`,
-//       [username]
-//     );
+    if (isUserActive === true) query += " AND u.is_active = true";
+    if (isUserActive === false) query += " AND u.is_active = false";
 
-//     const userCheck = userRes.rows[0];
+    query += " GROUP BY ug.game_id";
 
-//     if (!userCheck)
-//       throw new NotFoundError(`No active user with username: ${username}`);
+    const playersRes = await db.query(query, [gameId])
 
-//     if (!userCheck.isActive) throw new InactiveError();
+    const players = playersRes.rows;
+    if (!players.length) return players;
 
-//     const isValid = await bcrypt.compare(oldPassword, userCheck.password);
-//     if (isValid) {
-//       const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_WORK_FACTOR);
+    return players[0].players;
+  }
 
-//       const userRes = await db.query(
-//         `UPDATE users
-//             SET password = $1
-//             WHERE username = $2
-//             RETURNING username, 
-//                     first_name AS "firstName",
-//                     last_name AS "lastName", 
-//                     birth_date AS "birthDate", 
-//                     current_city AS "currentCity",
-//                     current_state AS "currentState", 
-//                     profile_img AS "profileImg",
-//                     created_on AS "createdOn",
-//                     is_private AS "isPrivate",
-//                     email, 
-//                     is_admin AS "isAdmin",
-//                     phone_number AS "phoneNumber"`,
-//         [hashedPassword, username]
-//       );
+  /**Adds user with username to game with gameId
+   *
+   * only meant to add users who are not game hosts
+   * returns update player list of game
+   *
+   * @param {number} gameId
+   * @param {string} username
+   * @returns {array} [username, ...]
+   * throws InactiveError if user/game are inactive
+   * throws NotFoundError if user/game not found
+   */
 
-//       const user = userRes.rows[0];
+  static async addUserGame(gameId, username) {
+    const usernameGameCheck = await db.query(
+      `SELECT (SELECT is_active AS "game" FROM games WHERE id = $1), (SELECT is_active AS 
+        "user" FROM users WHERE username = $2)`,
+      [gameId, username]
+    );
+    const result = usernameGameCheck.rows[0];
 
-//       const followingRes = await db.query(
-//         `SELECT f.followed_user 
-//         FROM is_following AS f
-//         LEFT JOIN users AS u
-//         ON f.followed_user = u.username
-//         WHERE f.following_user = $1 AND u.is_active = true`,
-//         [username]
-//       );
+    if (result.game === null) throw new NotFoundError(NotFoundMsgGame(gameId));
+    if (result.user === null)
+      throw new NotFoundError(NotFoundMsgUser(username));
+    if (!result.game) throw new InactiveError(InactiveMsgGame(gameId));
+    if (!result.user) throw new InactiveError(InactiveMsgUser(username));
 
-//       const followedRes = await db.query(
-//         `SELECT f.following_user 
-//         FROM is_following AS f
-//         LEFT JOIN users AS u
-//         ON f.following_user = u.username
-//         WHERE followed_user = $1 AND u.is_active = true`,
-//         [username]
-//       );
+    await db.query(
+      `INSERT INTO users_games(game_id, username)
+           VALUES ($1, $2)`,
+      [gameId, username]
+    );
+    const playersRes = await db.query(
+      `SELECT array_remove(array_agg(ug.username), NULL) AS "players"
+          FROM users_games AS ug
+          LEFT JOIN users AS u
+          ON ug.username = u.username
+          WHERE ug.game_id = $1 AND u.is_active = true
+          GROUP by game_id`,
+      [gameId]
+    );
+    const players = playersRes.rows;
+    if (!players.length) return players;
 
-//       user.isFollowing = followingRes.rows.map((r) => r.followed_user);
-//       user.isFollowed = followedRes.rows.map((r) => r.following_user);
-
-//       return user;
-//     }
-
-//     throw new UnauthError("Invalid password");
-//   }
-
-//   /** Updates isAdmin status`.
-//    * SECRET_KEY is required to isAdmin status
-//    * All registered users are not assigned is admin status, to change requires SECRET_KEY
-//    *
-//    * Returns { username, firstName, lastName, birthDate, currentCity, currentState, phoneNumber, profileImg, email, isPrivate, isAdmin, createdOn }
-//    *
-//    * Throws NotFoundError if user not found.
-//    *
-//    * Throws BadRequestError if invalid key is provided
-//    *
-//    */
-
-//   static async updateIsAdmin(username, key) {
-//     const userRes = await db.query(
-//       `SELECT is_admin AS "isAdmin"
-//                 FROM users 
-//                 WHERE username = $1`,
-//       [username]
-//     );
-
-//     const userCheck = userRes.rows[0];
-
-//     if (!userCheck)
-//       throw new NotFoundError(`No active user with username: ${username}`);
-
-//     const isAdminStatus = userCheck.isAdmin;
-
-//     if (key === SECRET_KEY) {
-//       const result = await db.query(
-//         `UPDATE users
-//                     SET is_admin = $1
-//                     WHERE username = $2
-//                     RETURNING username, 
-//                             first_name AS "firstName",
-//                             last_name AS "lastName", 
-//                             birth_date AS "birthDate", 
-//                             current_city AS "currentCity",
-//                             current_state AS "currentState", 
-//                             profile_img AS "profileImg",
-//                             created_on AS "createdOn",
-//                             is_private AS "isPrivate",
-//                             email, 
-//                             is_admin AS "isAdmin",
-//                             phone_number AS "phoneNumber"`,
-//         [!isAdminStatus, username]
-//       );
-
-//       const user = result.rows[0];
-
-//       const followingRes = await db.query(
-//         `SELECT f.followed_user 
-//                 FROM is_following AS f
-//                 LEFT JOIN users AS u
-//                 ON f.followed_user = u.username
-//                 WHERE f.following_user = $1 AND u.is_active = true`,
-//         [username]
-//       );
-
-//       const followedRes = await db.query(
-//         `SELECT f.following_user 
-//                 FROM is_following AS f
-//                 LEFT JOIN users AS u
-//                 ON f.following_user = u.username
-//                 WHERE followed_user = $1 AND u.is_active = true`,
-//         [username]
-//       );
-
-//       user.isFollowing = followingRes.rows.map((r) => r.followed_user);
-//       user.isFollowed = followedRes.rows.map((r) => r.following_user);
-
-//       return user;
-//     }
-
-//     throw new UnauthError("Invalid key");
-//   }
+    return players[0].players;
+  }
 }
 
 module.exports = Game;

@@ -1,6 +1,5 @@
 "use strict";
 
-const db = require("../db");
 const { SECRET_KEY } = require("../config");
 const {
   BadRequestError,
@@ -48,8 +47,8 @@ describe("get(usernam)", function () {
       profileImg: "http://f1.img",
       createdOn: expect.any(Date),
       isPrivate: false,
-      isFollowing: ["test2"],
-      isFollowed: ["test2"],
+      following: ["test2"],
+      followed: ["test2", "test4"],
     });
   });
 
@@ -58,7 +57,7 @@ describe("get(usernam)", function () {
       await User.get("test3");
       fail();
     } catch (err) {
-      expect(err instanceof NotFoundError).toBeTruthy();
+      expect(err instanceof InactiveError).toBeTruthy();
     }
   });
 
@@ -96,6 +95,15 @@ describe("findAll()", function () {
         profileImg: "http://f2.img",
         is_private: false,
       },
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
     ]);
   });
 });
@@ -118,8 +126,8 @@ describe("authenticate(username,password)", function () {
       createdOn: expect.any(Date),
       isPrivate: false,
       isAdmin: false,
-      isFollowing: ["test2"],
-      isFollowed: ["test2"],
+      following: ["test2"],
+      followed: ["test2", "test4"],
     });
   });
 
@@ -156,16 +164,16 @@ describe("authenticate(username,password)", function () {
 describe("register(data)", function () {
   test("returns user data with valid username", async function () {
     const data = {
-      username: "test4",
-      firstName: "f4",
-      lastName: "l4",
-      birthDate: "2000-01-04",
-      currentCity: "cc4",
-      currentState: "cs4",
+      username: "test5",
+      firstName: "f5",
+      lastName: "l5",
+      birthDate: "2000-01-05",
+      currentCity: "cc5",
+      currentState: "cs5",
       phoneNumber: null,
-      profileImg: "http://f4.img",
-      password: "password4",
-      email: "test4",
+      profileImg: "http://f5.img",
+      password: "password5",
+      email: "test5",
       createdOn: expect.any(Date)
     };
     const user = await User.register(data);
@@ -174,8 +182,8 @@ describe("register(data)", function () {
       ...data,
       isPrivate: false,
       isAdmin: false,
-      isFollowing: [],
-      isFollowed: [],
+      following: [],
+      followed: [],
     };
 
     delete returnData.password;
@@ -228,8 +236,8 @@ describe("update(username, data)", function () {
       email: "test3@test.com",
       isPrivate: false,
       isAdmin: false,
-      isFollowing: [],
-      isFollowed: [],
+      following: [],
+      followed: [],
       createdOn: expect.any(Date)
     });
   });
@@ -290,6 +298,30 @@ describe("update(username, data)", function () {
   });
 });
 
+// ******************************************** reactivate(username)
+
+describe("reactivate(user)", function () {
+  test("reactivates existing user", async function () {
+    let users = await User.findAll();
+    let usernames = users.map((u) => u.username);
+    expect(usernames).not.toContain("test3");
+
+    await User.reactivate("test3");
+    users = await User.findAll();
+    usernames = users.map((u) => u.username);
+    expect(usernames).toContain("test3");
+  });
+
+  test("not found if no such user", async function () {
+    try {
+      await User.deactivate('bananaMan');
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
+});
+
 // ******************************************** deactivate(username)
 
 describe("deactivate(user)", function () {
@@ -319,9 +351,7 @@ describe("deactivate(user)", function () {
 describe("updatePassword(username, oldPassword, newPassword)", function(){
     test('updates password with valid credentials', async function(){
         const oldPasswordRes = await User.authenticate('test1', 'password1')
-        const user = await User.updatePassword('test1', 'password1', 'password2')
-
-        expect(oldPasswordRes).toEqual(user);
+        await User.updatePassword('test1', 'password1', 'password2');
 
         const newPasswordRes = await User.authenticate('test1', 'password2')
         expect(oldPasswordRes).toEqual(newPasswordRes)
@@ -378,3 +408,5 @@ describe("updateIsAdmin", function(){
         }
       });
 })
+
+
