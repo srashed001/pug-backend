@@ -3,11 +3,13 @@ const bcrypt = require("bcrypt");
 const db = require("../db.js");
 const { BCRYPT_WORK_FACTOR } = require("../config");
 const {v4: uuid} = require('uuid')
+const { createToken } = require("../helper/tokens");
 
 
 
 let testGameIds = []
 let testMsgIds = []
+let testCommentIds = []
 let testThreadsIds = [uuid(), uuid(), uuid(), uuid(), uuid()]
 
 async function commonBeforeAll() {
@@ -60,12 +62,15 @@ async function commonBeforeAll() {
                 ($3, 'test3')
     `, [testGameIds[0], testGameIds[1], testGameIds[2]]);
 
-  await db.query(`
+  const resComment = await db.query(`
         INSERT INTO games_comments(game_id, username, comment, is_active)
         VALUES ($1, 'test1', 'test comment', true),
                ($1, 'test3', 'test comment', true),
                ($1, 'test4', 'test comment', false)
+        RETURNING id
     `, [testGameIds[0]]);
+  
+    testCommentIds.splice(0,0, ...resComment.rows.map(r=>r.id))
 
   await db.query(
     `INSERT INTO users_threads (id, username)
@@ -145,6 +150,13 @@ async function commonAfterAll() {
   await db.end();
 }
 
+const u1Token = createToken({ username: "test1", isAdmin: false });
+const u2Token = createToken({ username: "test2", isAdmin: false });
+const u3Token = createToken({ username: "test3", isAdmin: false });
+const u4Token = createToken({ username: "test4", isAdmin: false });
+const u5Token = createToken({ username: "test5", isAdmin: false });
+const adminToken = createToken({ username: "admin", isAdmin: true });
+
 module.exports = {
   commonBeforeAll,
   commonBeforeEach,
@@ -152,5 +164,12 @@ module.exports = {
   commonAfterAll,
   testGameIds,
   testThreadsIds,
-  testMsgIds
+  testCommentIds,
+  testMsgIds, 
+  u1Token,
+  u2Token,
+  u3Token,
+  u4Token,
+  u5Token,
+  adminToken
 };

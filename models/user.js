@@ -10,39 +10,38 @@ const {
   InactiveError,
 } = require("../expressError");
 
-const { sqlForPartialUpdate } = require("../helper/sql");
+const { sqlForPartialUpdate, sqlForUsersFilters } = require("../helper/sql");
 
 const { BCRYPT_WORK_FACTOR, SECRET_KEY } = require("../config");
 
-function NotFoundMsg(username){
-  return `No user: ${username}`
+function NotFoundMsg(username) {
+  return `No user: ${username}`;
 }
 
-function InactiveMsg(username){
-  return `User profile Inactive: ${username}`
+function InactiveMsg(username) {
+  return `User profile Inactive: ${username}`;
 }
 
 class User {
   /** Given a username, return data about user if user is_active.
    *
-   * @param {string} username            
-   * @returns {object} { username, 
-   *                     first_name, 
-   *                     last_name, 
-   *                     birthDate, 
-   *                     currCity, c
-   *                     urrState, 
-   *                     profileImg, 
-   *                     createdOn, 
-   *                     isPrivate, 
-   *                     following, 
+   * @param {string} username
+   * @returns {object} { username,
+   *                     first_name,
+   *                     last_name,
+   *                     birthDate,
+   *                     city,
+   *                     state,
+   *                     profileImg,
+   *                     createdOn,
+   *                     isPrivate,
+   *                     following,
    *                     followed }
    *   where isFollowing/isFollowed is [username, ...]
-   * 
+   *
    * Throws NotFoundError if user not found.
    * Throws InactiveError if user is inactive
    **/
-
   static async get(username) {
     const followingQuery = `
     SELECT array_remove(array_agg(f.followed_user), NULL ) AS "following"
@@ -65,107 +64,12 @@ class User {
               first_name AS "firstName",
               last_name AS "lastName", 
               birth_date AS "birthDate", 
-              current_city AS "currentCity",
-              current_state AS "currentState", 
+              current_city AS "city",
+              current_state AS "state", 
               profile_img AS "profileImg",
               created_on AS "createdOn",
               is_private AS "isPrivate",
               is_active,
-              (${followedQuery}),
-              (${followingQuery})
-        FROM users 
-        WHERE username = $1`,
-      [username]
-    );
-
-    const user = userRes.rows[0];
-
-    if (!user) throw new NotFoundError(NotFoundMsg(username));
-
-    if (!user.is_active)
-      throw new InactiveError(InactiveMsg(username));
-    delete user.is_active;
-
-    user.following = user.following ? user.following : []
-    user.followed = user.followed ? user.followed : []
-
-    return user;
-  }
-  /** Find all active users.
-   *
-   * @returns {array} [user, ...]
-   *  where user is { username, first_name, last_name, currCity, currState, profile_img, is_private }
-   **/
-
-  static async findAll() {
-    const usersRes = await db.query(`
-        SELECT username,
-            first_name AS "firstName", 
-            last_name AS "lastName", 
-            current_city AS "currentCity", 
-            current_state AS "currentState", 
-            profile_img AS "profileImg", 
-            is_private AS "is_private"
-        FROM users
-        WHERE is_active = true
-      `);
-
-    return usersRes.rows;
-  }
-
-  /** authenticate user with username, password if user is active.
-   * 
-   * @param {string} username
-   * @param {string} password
-   *
-   * @returns {object} {  username,
-   *                   first_name,
-   *                   last_name,
-   *                   birthDate,
-   *                   currCity,
-   *                   currState,
-   *                   profileImg,
-   *                   createdOn,
-   *                   isPrivate,
-   *                   email,
-   *                   phoneNumber,
-   *                   is_admin,
-   *                   following,
-   *                   followed }
-   *
-   *  where isFollowing/isFollowed is [username, ...]
-   *
-   * Throws UnauthorizedError is user not found or wrong password.
-   * Throws InactiveError if user profile is currently disabled
-   **/
-
-  static async authenticate(username, password) {
-    const followingQuery = `
-    SELECT array_remove(array_agg(f.followed_user), NULL ) AS "following"
-    FROM is_following AS f
-    LEFT JOIN users AS u
-    ON f.followed_user = u.username
-    WHERE f.following_user = $1 AND u.is_active = true`;
-
-    const followedQuery = `
-    SELECT array_remove(array_agg(f.following_user), NULL ) AS "followed" 
-    FROM is_following AS f
-    LEFT JOIN users AS u
-    ON f.following_user = u.username
-    WHERE followed_user = $1 AND u.is_active = true`;
-
-    const userRes = await db.query(
-      `SELECT username, 
-              first_name AS "firstName",
-              last_name AS "lastName", 
-              birth_date AS "birthDate", 
-              current_city AS "currentCity",
-              current_state AS "currentState", 
-              profile_img AS "profileImg",
-              created_on AS "createdOn",
-              is_private AS "isPrivate",
-              is_active,
-              password,
               email, 
               is_admin AS "isAdmin",
               phone_number AS "phoneNumber",
@@ -178,16 +82,81 @@ class User {
 
     const user = userRes.rows[0];
 
+    if (!user) throw new NotFoundError(NotFoundMsg(username));
+
+    if (!user.is_active) throw new InactiveError(InactiveMsg(username));
+    delete user.is_active;
+
+    user.following = user.following ? user.following : [];
+    user.followed = user.followed ? user.followed : [];
+
+    return user;
+  }
+
+  /** returns all user data, unless passed searchFilters or isActive filter
+   *
+   * @param {object} searchFilters
+   * - username => returns list ordered by username
+   * - firstName => returns list ordered by similarity
+   * - lastName => returns list ordered by lastName
+   * - city => returns list where trigram similarity is > .4
+   * - state => returns list where state is exact match
+   * - isActive
+   *    - undefined/null => returns all users
+   *    - true => returns active users
+   *    - false => returns inactive users
+   *
+   * @returns {array} users [{username, firstName, lastName, city, state, profileImg, isPrivate}, ...]
+   *
+   */
+  static async findAll(searchFilters = {}) {
+    const findAllQuery = `
+        SELECT username,
+            first_name AS "firstName", 
+            last_name AS "lastName", 
+            current_city AS "currentCity", 
+            current_state AS "currentState", 
+            profile_img AS "profileImg", 
+            is_private AS "is_private"
+        FROM users
+      `;
+
+    const [query, values] = sqlForUsersFilters(findAllQuery, searchFilters);
+    // return query
+    const usersRes = await db.query(query, values);
+
+    return usersRes.rows;
+  }
+
+  /** authenticate user with username, password if user is active.
+   *
+   * @param {string} username
+   * @param {string} password
+   *
+   * @returns {object} {  username, isAdmin }
+   *
+   * Throws UnauthorizedError is user not found or wrong password.
+   * Throws InactiveError if user profile is currently disabled
+   **/
+  static async authenticate(username, password) {
+    const userRes = await db.query(
+      `SELECT username, 
+              password, 
+              is_active AS "isActive",
+              is_admin AS "isAdmin"
+        FROM users 
+        WHERE username = $1`,
+      [username]
+    );
+
+    const user = userRes.rows[0];
+
     if (user) {
-      if (!user.is_active) throw new InactiveError(InactiveMsg(username));
+      if (!user.isActive) throw new InactiveError(InactiveMsg(username));
 
       const isValid = await bcrypt.compare(password, user.password);
       if (isValid) {
-        delete user.password, delete user.is_active;
-
-        user.following = user.following ? user.following : []
-        user.followed = user.followed ? user.followed : []
-
+        delete user.password, delete user.isActive;
         return user;
       }
     }
@@ -205,30 +174,14 @@ class User {
                        currentCity,
                        currentState,
                        phoneNumber,
-                       profileImg,
                        password,
                        email }
    *
-   * @returns {object} {  username,
-   *                      first_name,
-   *                      last_name,
-   *                      birthDate,
-   *                      currCity,
-   *                      currState,
-   *                      profileImg,
-   *                      isPrivate,
-   *                      email,
-   *                      createdOn,
-   *                      phoneNumber,
-   *                      is_admin,
-   *                      isFollowing,
-   *                      isFollowed }
+   * @returns {object} {  username, isAdmin }
    *
-   *  where isFollowing/isFollowed is []
    *
-   * Throws BadRequestError if updating username with duplicate usernam.
+   * Throws BadRequestError if selected a duplicate username.
    **/
-
   static async register({
     username,
     firstName,
@@ -237,7 +190,6 @@ class User {
     currentCity,
     currentState,
     phoneNumber,
-    profileImg,
     password,
     email,
   }) {
@@ -255,19 +207,9 @@ class User {
 
     const userRes = await db.query(
       `INSERT INTO users 
-              (username, first_name, last_name, birth_date, current_city, current_state, phone_number, profile_img, password, email)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              (username, first_name, last_name, birth_date, current_city, current_state, phone_number, password, email)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
               RETURNING username,
-                        first_name AS "firstName",
-                        last_name AS "lastName", 
-                        birth_date AS "birthDate",
-                        current_city AS "currentCity",
-                        current_state AS "currentState",
-                        profile_img AS "profileImg",
-                        is_private AS "isPrivate",
-                        email,
-                        phone_number AS "phoneNumber",
-                        created_on AS "createdOn", 
                         is_admin AS "isAdmin"
                         `,
       [
@@ -278,15 +220,12 @@ class User {
         currentCity,
         currentState,
         phoneNumber,
-        profileImg,
         hashedPassword,
         email,
       ]
     );
 
     const user = userRes.rows[0];
-    user.following = [];
-    user.followed = [];
 
     return user;
   }
@@ -298,28 +237,28 @@ class User {
    *
    * @param {obj} data
    * Data can include:
-   *   { username, 
-   *     firstName, 
-   *     lastName, 
-   *     birthDate, 
-   *     currentCity, 
-   *     currentState, 
-   *     phoneNumber, 
-   *     profileImg, 
-   *     email, 
+   *   { username,
+   *     firstName,
+   *     lastName,
+   *     birthDate,
+   *     city,
+   *     state,
+   *     phoneNumber,
+   *     profileImg,
+   *     email,
    *     isPrivate }
    *
-   * @returns {obj} { username, 
-   *                  firstName, 
-   *                  lastName, 
-   *                  birthDate, 
-   *                  currentCity, 
-   *                  currentState, 
-   *                  phoneNumber, 
-   *                  profileImg, 
+   * @returns {obj} { username,
+   *                  firstName,
+   *                  lastName,
+   *                  birthDate,
+   *                  city,
+   *                  state,
+   *                  phoneNumber,
+   *                  profileImg,
    *                  createdOn,
-   *                  email, 
-   *                  isPrivate, 
+   *                  email,
+   *                  isPrivate,
    *                  isAdmin,
    *                  following
    *                  followed }
@@ -327,6 +266,7 @@ class User {
    * Throws NotFoundError if not found.
    *
    * Throws BadRequestError if invalid fields are provided
+   * Throws BadRequestError if updating username with existing username
    *
    * For security purposes this function cannot change passwords or is_admin status
    * Seperate functions are used for updating those properties
@@ -338,8 +278,8 @@ class User {
       firstName: "first_name",
       lastName: "last_name",
       birthDate: "birth_date",
-      currentCity: "current_city",
-      currentState: "current_state",
+      city: "current_city",
+      state: "current_state",
       phoneNumber: "phone_number",
       profileImg: "profile_img",
       email: "email",
@@ -366,8 +306,8 @@ class User {
                                       first_name AS "firstName",
                                       last_name AS "lastName", 
                                       birth_date AS "birthDate", 
-                                      current_city AS "currentCity",
-                                      current_state AS "currentState", 
+                                      current_city AS "city",
+                                      current_state AS "state", 
                                       phone_number AS "phoneNumber", 
                                       profile_img AS "profileImg", 
                                       created_on AS "createdOn",
@@ -378,8 +318,7 @@ class User {
     const result = await db.query(querySql, [...values, username]);
     const user = result.rows[0];
 
-    if (!user)
-      throw new NotFoundError(NotFoundMsg(username));
+    if (!user) throw new NotFoundError(NotFoundMsg(username));
 
     const followRes = await db.query(
       `SELECT
@@ -400,20 +339,24 @@ class User {
       [user.username]
     );
 
-    user.following = followRes.rows[0].following ? followRes.rows[0].following : []
-    user.followed = followRes.rows[0].followed ? followRes.rows[0].followed : []
+    user.following = followRes.rows[0].following
+      ? followRes.rows[0].following
+      : [];
+    user.followed = followRes.rows[0].followed
+      ? followRes.rows[0].followed
+      : [];
 
     return user;
   }
+
   /** Reactivates user with username
    * allows user to recover deactivated account
    *
    * @param {*} username
    * @return {undefined}
-   * 
+   *
    * * NotFound if username does not exist
    */
-
   static async reactivate(username) {
     const result = await db.query(
       `UPDATE users
@@ -424,18 +367,17 @@ class User {
     );
     const user = result.rows[0];
 
-    if (!user)
-      throw new NotFoundError(NotFoundMsg(username));
+    if (!user) throw new NotFoundError(NotFoundMsg(username));
   }
+
   /** Deactivates user with username
    * equivalent to deleting profile, however, this allows user to recover account
    *
    * @param {*} username
    * @return {undefined}
-   * 
+   *
    * * NotFound if username does not exist
    */
-
   static async deactivate(username) {
     const result = await db.query(
       `UPDATE users
@@ -446,23 +388,22 @@ class User {
     );
     const user = result.rows[0];
 
-    if (!user)
-      throw new NotFoundError(NotFoundMsg(username));
+    if (!user) throw new NotFoundError(NotFoundMsg(username));
   }
+
   /** Updates user password with username, old password, and new password`.
    * username and old password is required to update password
-   * 
+   *
    * @param {string} username
    * @param {string} oldPassword
    * @param {string} newPassword
    *
-   * @returns {undefined} 
+   * @returns {undefined}
    *
    * Throws NotFoundError if user not found.
    * Throws BadRequestError if invalid credentials are provided
    *
    */
-
   static async updatePassword(username, oldPassword, newPassword) {
     const userRes = await db.query(
       `SELECT password, is_active AS "isActive"
@@ -473,8 +414,7 @@ class User {
 
     const userCheck = userRes.rows[0];
 
-    if (!userCheck)
-      throw new NotFoundError(NotFoundMsg(username));
+    if (!userCheck) throw new NotFoundError(NotFoundMsg(username));
 
     if (!userCheck.isActive) throw new InactiveError(InactiveMsg(username));
 
@@ -490,8 +430,7 @@ class User {
         [hashedPassword, username]
       );
 
-      if(userRes.rows[0]) return 
-
+      if (userRes.rows[0]) return;
     }
 
     throw new UnauthError("Invalid password");
@@ -500,27 +439,26 @@ class User {
   /** Updates isAdmin status`.
    * SECRET_KEY is required to isAdmin status
    * All registered users is_admin defaults to false, to change requires SECRET_KEY
-   * 
+   *
    * @param {string} username
    * @param {string} key = SECRET_KEY
-   * @returns {object} { username, 
-   *                     firstName, 
-   *                     lastName, 
-   *                     birthDate, 
-   *                     currentCity, 
-   *                     currentState, 
-   *                     phoneNumber, 
-   *                     profileImg, 
-   *                     email, 
-   *                     isPrivate, 
-   *                     isAdmin, 
+   * @returns {object} { username,
+   *                     firstName,
+   *                     lastName,
+   *                     birthDate,
+   *                     currentCity,
+   *                     currentState,
+   *                     phoneNumber,
+   *                     profileImg,
+   *                     email,
+   *                     isPrivate,
+   *                     isAdmin,
    *                     createdOn }
    *
    * Throws NotFoundError if user not found.
    * Throws BadRequestError if invalid key is provided
    *
    */
-
   static async updateIsAdmin(username, key) {
     const userRes = await db.query(
       `SELECT is_admin AS "isAdmin"
@@ -531,8 +469,7 @@ class User {
 
     const userCheck = userRes.rows[0];
 
-    if (!userCheck)
-      throw new NotFoundError(NotFoundMsg(username));
+    if (!userCheck) throw new NotFoundError(NotFoundMsg(username));
 
     const isAdminStatus = userCheck.isAdmin;
 
@@ -576,10 +513,14 @@ class User {
           `,
         [user.username]
       );
-  
-      user.following = followRes.rows[0].following ? followRes.rows[0].following : []
-      user.followed = followRes.rows[0].followed ? followRes.rows[0].followed : []
-  
+
+      user.following = followRes.rows[0].following
+        ? followRes.rows[0].following
+        : [];
+      user.followed = followRes.rows[0].followed
+        ? followRes.rows[0].followed
+        : [];
+
       return user;
     }
 

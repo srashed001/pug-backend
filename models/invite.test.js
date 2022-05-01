@@ -1,10 +1,10 @@
 "use strict";
 
-const db = require("../db");
 const {
   BadRequestError,
   NotFoundError,
   InactiveError,
+  UnauthError,
 } = require("../expressError");
 const Invite = require("./invite");
 
@@ -22,7 +22,98 @@ afterAll(commonAfterAll);
 
 const { testGameIds } = require("./_testCommon");
 
+
+// ***************************************** createGroup({gameId, fromUser, usersArr})
+
+describe(`createGroup({gameId, fromUser, usersArr})`, function(){
+  test(`sends invites to all users in usersArr`, async function(){
+    // using testGameId[1] because it currently has no invites
+    const groupInvites = await Invite.createGroup({
+      gameId: testGameIds[1],
+      fromUser: 'test2',
+      usersArr: ['test1', 'test4', 'test5']
+    })
+    expect(groupInvites).toEqual([
+      {
+        id: expect.any(Number),
+        toUser: 'test1',
+        createdOn: expect.any(Date),
+        gameId: testGameIds[1]
+      },
+      {
+        id: expect.any(Number),
+        toUser: 'test4',
+        createdOn: expect.any(Date),
+        gameId: testGameIds[1]
+      },
+      {
+        id: expect.any(Number),
+        toUser: 'test5',
+        createdOn: expect.any(Date),
+        gameId: testGameIds[1]
+      }
+    ])
+    
+
+    const game2invites = await Invite.getAllGameInvites(testGameIds[1])
+    expect(groupInvites.map(el => el.id)).toEqual(game2invites.map(el => el.id))
+  });
+
+  test(`returns notFound if fromUser does not exist`, async function(){
+    try{
+      await Invite.createGroup({
+        gameId: testGameIds[1],
+        fromUser: 'bananaMan',
+        usersArr: ['test1', 'test4', 'test5']
+      })
+      fail();
+    } catch(err){
+      expect(err instanceof NotFoundError).toBeTruthy()
+    }
+  })
+
+  test(`returns notFound if user in usersArr does not exist`, async function(){
+    try{
+      await Invite.createGroup({
+        gameId: testGameIds[1],
+        fromUser: 'test2',
+        usersArr: ['test1', 'test4', 'bananaMan']
+      })
+      fail();
+    } catch(err){
+      expect(err instanceof NotFoundError).toBeTruthy()
+    }
+  })
+
+  test(`returns notFound if gameId does not exist`, async function(){
+    try{
+      await Invite.createGroup({
+        gameId: 0,
+        fromUser: 'test2',
+        usersArr: ['test1', 'test4']
+      })
+      fail();
+    } catch(err){
+      expect(err instanceof NotFoundError).toBeTruthy()
+    }
+  })
+
+  test(`returns inactive if gameId is inactive`, async function(){
+    try{
+      await Invite.createGroup({
+        gameId: testGameIds[3],
+        fromUser: 'test2',
+        usersArr: ['test1', 'test4']
+      })
+      fail();
+    } catch(err){
+      expect(err instanceof InactiveError).toBeTruthy()
+    }
+  })
+});
+
 // ***************************************** create(data)
+
 describe("create(data)", function () {
   test("creates invite to user for game", async function () {
     const data = {
@@ -41,6 +132,7 @@ describe("create(data)", function () {
     expect(newInvite).toEqual({
       id: expect.any(Number),
       toUser: "test5",
+      gameId: testGameIds[0],
       createdOn: expect.any(Date),
     });
 
@@ -88,6 +180,7 @@ describe("create(data)", function () {
       id: expect.any(Number),
       toUser: "test4",
       createdOn: expect.any(Date),
+      gameId: testGameIds[2]
     });
 
     const gameInvitesAfter = await Invite.getGameInvites(testGameIds[2]);
@@ -190,6 +283,7 @@ describe("create(data)", function () {
 });
 
 // ***************************************** get(inviteId)
+
 describe("get(inviteId)", function () {
   test("returns data on user_invite with inviteId", async function () {
     const data = {
@@ -199,77 +293,79 @@ describe("get(inviteId)", function () {
     };
 
     const newInvite = await Invite.create(data);
-    const getInvite = await Invite.get(newInvite.id)
+    const getInvite = await Invite.get(newInvite.id);
     expect(getInvite).toEqual({
       id: expect.any(Number),
       gameId: testGameIds[0],
-      fromUser: 'test1',
-      toUser: 'test5',
-      status: 'pending',
-      createdOn: expect.any(Date)
-    })
+      fromUser: "test1",
+      toUser: "test5",
+      status: "pending",
+      createdOn: expect.any(Date),
+    });
   });
 
   test("returns not found if inviteId does not exist", async function () {
-    try{
+    try {
       await Invite.get(0);
-      fail()
-    }catch(err){
-      expect(err instanceof NotFoundError).toBeTruthy()
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
     }
   });
 });
 
 // **************************************** getAllGameInvites(gameId)
-describe('getAllGameInvites(gameId)', function(){
-  test(`returns all invites to game, including inactive user invites`, async function(){
+
+describe("getAllGameInvites(gameId)", function () {
+  test(`returns all invites to game, including inactive user invites`, async function () {
     // test3 is inactive but invite still appears
     const invites = await Invite.getAllGameInvites(testGameIds[0]);
     expect(invites).toEqual([
       {
         id: expect.any(Number),
-        fromUser: 'test1',
+        fromUser: "test1",
         toUser: "test4",
-        status: 'pending',
+        status: "pending",
         createdOn: expect.any(Date),
       },
       {
         id: expect.any(Number),
-        fromUser: 'test1',
+        fromUser: "test1",
         toUser: "test3",
-        status: 'pending',
+        status: "pending",
         createdOn: expect.any(Date),
       },
       {
         id: expect.any(Number),
-        fromUser: 'test1',
+        fromUser: "test1",
         toUser: "test2",
-        status: 'pending',
+        status: "pending",
         createdOn: expect.any(Date),
       },
-    ])
-  })
+    ]);
+  });
 
-  test(`returns not found if gameId does not exist`, async function(){
-    try{
-      await Invite.getAllGameInvites(0)
-      fail()
-    }catch(err){
-      expect(err instanceof NotFoundError).toBeTruthy()
+  test(`returns not found if gameId does not exist`, async function () {
+    try {
+      await Invite.getAllGameInvites(0);
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
     }
-  })
+  });
 
-  test(`returns inactive if game is inactive`, async function(){
-    try{
-      await Invite.getAllGameInvites(testGameIds[3])
-      fail()
-    }catch(err){
-      expect(err instanceof InactiveError).toBeTruthy()
+  test(`returns inactive if game is inactive`, async function () {
+    try {
+      await Invite.getAllGameInvites(testGameIds[3]);
+      fail();
+    } catch (err) {
+      expect(err instanceof InactiveError).toBeTruthy();
     }
-  })
-})
+  });
+});
 
 // ***************************************** getAllInvitesSent(username)
+
 describe("getAllInvitesSent(username)", function () {
   test("returns all invites sent from user", async function () {
     // data for inactive user 'test3' and inactive game testGameId[3] are still returned
@@ -305,7 +401,6 @@ describe("getAllInvitesSent(username)", function () {
       },
     ]);
   });
-  
 
   test("returns not found if username does not exist", async function () {
     try {
@@ -326,6 +421,7 @@ describe("getAllInvitesSent(username)", function () {
   });
 });
 // ***************************************** getInvitesSent(username)
+
 describe("getInvitesSent(username)", function () {
   test("returns invites sent for active games to active user with username", async function () {
     // 'test3' was sent invite, however its data is not returned because user inactive
@@ -348,7 +444,6 @@ describe("getInvitesSent(username)", function () {
       },
     ]);
   });
-  
 
   test("returns not found if username does not exist", async function () {
     try {
@@ -370,6 +465,7 @@ describe("getInvitesSent(username)", function () {
 });
 
 // ***************************************** getAllInvitesReceived(username)
+
 describe("getAllInvitesReceived(username)", function () {
   test("returns all invites sent to active user", async function () {
     // data for inactive user 'test3' and inactive game testGameId[3] are still returned
@@ -418,6 +514,7 @@ describe("getAllInvitesReceived(username)", function () {
   });
 });
 // ***************************************** getInvitesReceived(username)
+
 describe("getInvitesReceived(username)", function () {
   test("returns invites sent to active user with username", async function () {
     // 'test3' sent invite, however its data is not returned because user inactive
@@ -454,6 +551,7 @@ describe("getInvitesReceived(username)", function () {
 });
 
 // ***************************************** getGameInvites(username)
+
 describe("getGameInvites(gameId)", function () {
   test("returns 'pending' invites to active users for a game", async function () {
     // 'test3' was sent invite, however its data is not returned because user inactive
@@ -497,97 +595,167 @@ describe("getGameInvites(gameId)", function () {
   });
 });
 
+// ****************************************** update(inviteId, status)
 
-
-// ****************************************** update(userInviteId, status)
-describe(`update(userInviteId, status)`, function(){
-  test(`updates userInvite status with status`, async function(){
+describe(`update(inviteId, username, status)`, function () {
+  test(`updates 'pending' invite to 'cancelled' with correct user`, async function () {
     const data = {
       gameId: testGameIds[2],
-      fromUser: 'test2',
-      toUser: 'test4'
-    }
-    const newInvite = await Invite.create(data)
-    
-    const invite = await Invite.get(newInvite.id)
-    expect(invite.status).toEqual('pending')
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
 
-    const updatedInvite = await Invite.update(newInvite.id, 'accepted')
-    expect(updatedInvite.status).toEqual('accepted')
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
+
+    const updatedInvite = await Invite.update(newInvite.id, 'test2', "cancelled");
+    expect(updatedInvite.status).toEqual("cancelled");
   });
 
-  test(`returns not found if inviteId does not exist`, async function(){
-    try{
-      await Invite.update(0, 'accepted')
-      fail(); 
-    }catch(err){
-      expect(err instanceof NotFoundError).toBeTruthy()
-    }
-  })
-
-  test(`returns bad request if status is not an accepted value`, async function(){
-    // accepted values = 'accepted', 'denied', 'cancelled', 'pending'
+  test(`throws unauth when incorrect user updates 'pending' invite to 'cancelled`, async function () {
     const data = {
       gameId: testGameIds[2],
-      fromUser: 'test2',
-      toUser: 'test4'
-    }
-    const newInvite = await Invite.create(data)
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
 
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
     try{
-      await Invite.update(newInvite.id, 'not sure')
-      fail(); 
-    }catch(err){
-      expect(err instanceof BadRequestError).toBeTruthy()
-    }
-  })
+      await Invite.update(newInvite.id, 'test4', "cancelled");
+      fail()
 
-  test(`returns bad request if updating with same status`, async function(){
-    // accepted values = 'accepted', 'denied', 'cancelled', 'pending'
+    }catch(err){
+      expect(err instanceof UnauthError).toBeTruthy()
+    }
+  });
+
+  test(`updates 'pending' invite to 'accepted' with correct user`, async function () {
     const data = {
       gameId: testGameIds[2],
-      fromUser: 'test2',
-      toUser: 'test4'
-    }
-    const newInvite = await Invite.create(data)
-    const invite = await Invite.get(newInvite.id)
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
 
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
+
+    const updatedInvite = await Invite.update(newInvite.id, 'test4', "accepted");
+    expect(updatedInvite.status).toEqual("accepted");
+  });
+
+  test(`throws unauth when incorrect user updates 'pending' invite to 'accepted'`, async function () {
+    const data = {
+      gameId: testGameIds[2],
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
     try{
-      await Invite.update(newInvite.id, invite.status)
-      fail(); 
+      await Invite.update(newInvite.id, 'test2', "accepted");
+      fail()
+
     }catch(err){
-      expect(err instanceof BadRequestError).toBeTruthy()
+      expect(err instanceof UnauthError).toBeTruthy()
     }
-  })
-})
+  });
+
+  test(`updates 'pending' invite to 'denied' with correct user`, async function () {
+    const data = {
+      gameId: testGameIds[2],
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
+
+    const updatedInvite = await Invite.update(newInvite.id, 'test4', "denied");
+    expect(updatedInvite.status).toEqual("denied");
+  });
+
+  test(`throws unauth when incorrect user updates 'pending' invite to 'denied'`, async function () {
+    const data = {
+      gameId: testGameIds[2],
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
+    try{
+      await Invite.update(newInvite.id, 'test2', "denied");
+      fail()
+
+    }catch(err){
+      expect(err instanceof UnauthError).toBeTruthy()
+    }
+  });
+
+  test(`returns not found if inviteId does not exist`, async function () {
+    try {
+      await Invite.update(0, 'test1', "accepted");
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
+
+  test(`returns bad request if status is not an accepted value`, async function () {
+    // accepted values = 'accepted', 'denied', 'cancelled'
+    const data = {
+      gameId: testGameIds[2],
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+
+    try {
+      await Invite.update(newInvite.id, 'test2', "pending");
+      fail();
+    } catch (err) {
+      expect(err instanceof BadRequestError).toBeTruthy();
+    }
+  });
+
+});
 
 // ***************************************** delete(inviteId)
-describe(`delete(inviteId)`, function(){
-  test(`deletes invite with inviteId`, async function(){
+
+describe(`delete(inviteId)`, function () {
+  test(`deletes invite with inviteId`, async function () {
     const data = {
       gameId: testGameIds[2],
-      fromUser: 'test2',
-      toUser: 'test4'
-    }
-    const newInvite = await Invite.create(data)
-    const invite = await Invite.get(newInvite.id)
-    delete invite.gameId
-    let game3invites = await Invite.getAllGameInvites(testGameIds[2])
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+    const invite = await Invite.get(newInvite.id);
+    delete invite.gameId;
+    let game3invites = await Invite.getAllGameInvites(testGameIds[2]);
 
-    expect(game3invites).toContainEqual(invite)
+    expect(game3invites).toContainEqual(invite);
 
-    await Invite.delete(invite.id)
-    game3invites = await Invite.getAllGameInvites(testGameIds[2])
+    await Invite.delete(invite.id);
+    game3invites = await Invite.getAllGameInvites(testGameIds[2]);
 
-    expect(game3invites).not.toContainEqual(invite)
-  })
+    expect(game3invites).not.toContainEqual(invite);
+  });
 
-  test(`returns not found if inviteId does not exist`, async function(){
-    try{
+  test(`returns not found if inviteId does not exist`, async function () {
+    try {
       await Invite.delete(0);
-      fail()
-    }catch(err){
-      expect(err instanceof NotFoundError).toBeTruthy()
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
     }
-  })
-})
+  });
+});

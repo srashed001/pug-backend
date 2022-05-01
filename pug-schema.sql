@@ -1,3 +1,5 @@
+CREATE EXTENSION pg_trgm;
+
 CREATE TABLE users (
     username VARCHAR(25) PRIMARY KEY,
     first_name TEXT NOT NULL,
@@ -6,7 +8,7 @@ CREATE TABLE users (
     current_city TEXT NOT NULL,
     current_state TEXT NOT NULL,
     phone_number TEXT UNIQUE,
-    profile_img TEXT NOT NULL,
+    profile_img TEXT DEFAULT 'http://profile.img',
     password TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -44,13 +46,25 @@ CREATE TABLE games_comments (
     is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+CREATE TABLE users_threads (
+    id TEXT NOT NULL,
+    username TEXT REFERENCES users ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
+    PRIMARY KEY (id, username)
+);
+
 CREATE TABLE messages (
     id SERIAL PRIMARY KEY,
-    message_to TEXT REFERENCES users ON UPDATE CASCADE ON DELETE CASCADE,
-    message_from TEXT REFERENCES users ON UPDATE CASCADE ON DELETE CASCADE,
+    party_id TEXT NOT NULL,
+    message_from TEXT NOT NULL,
     message TEXT NOT NULL,
     created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    FOREIGN KEY (party_id, message_from) REFERENCES users_threads ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE inactive_messages (
+    message_id INTEGER REFERENCES messages ON UPDATE CASCADE ON DELETE CASCADE,
+    username TEXT REFERENCES users ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE is_following (
@@ -58,7 +72,6 @@ CREATE TABLE is_following (
     followed_user TEXT REFERENCES users ON UPDATE CASCADE ON DELETE CASCADE,
     PRIMARY KEY (followed_user, following_user)
 );
-
 
 CREATE TABLE users_invites (
     id SERIAL PRIMARY KEY,
@@ -68,3 +81,4 @@ CREATE TABLE users_invites (
     status TEXT DEFAULT 'pending',
     created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+

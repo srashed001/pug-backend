@@ -1,0 +1,83 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/userAuth.json",
+    "type": "object",
+    "properties": {
+      "date": {
+        "type": "string"
+      },
+      "city": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+            "AL",
+            "AK",
+            "AZ",
+            "AR",
+            "CA",
+            "CO",
+            "CT",
+            "DE",
+            "FL",
+            "GA",
+            "HI",
+            "ID",
+            "IL",
+            "IN",
+            "IA",
+            "KS",
+            "KY",
+            "LA",
+            "ME",
+            "MD",
+            "MA",
+            "MI",
+            "MN",
+            "MS",
+            "MO",
+            "MT",
+            "NE",
+            "NV",
+            "NH",
+            "NJ",
+            "NM",
+            "NY",
+            "NC",
+            "ND",
+            "OH",
+            "OK",
+            "OR",
+            "PA",
+            "RI",
+            "SC",
+            "SD",
+            "TN",
+            "TX",
+            "UT",
+            "VT",
+            "VA",
+            "WA",
+            "WV",
+            "WI",
+            "WY"
+          ]
+      },
+      "host": {
+        "type": "string"
+      },
+      "joined": {
+        "type": "string"
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "gameStatus": {
+        "type": "string",
+        "enum": ["pending", "resolved", "Pending", "Resolved", "PENDING", "RESOLVED"]
+      }
+    },
+    "additionalProperties": false,
+    "required": []
+  }

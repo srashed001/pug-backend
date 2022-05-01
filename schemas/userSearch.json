@@ -1,0 +1,79 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/userAuth.json",
+    "type": "object",
+    "properties": {
+      "username": {
+        "type": "string"
+      },
+      "firstName": {
+        "type": "string"
+      },
+      "lastName": {
+        "type": "string"
+      },
+      "city": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "AL",
+          "AK",
+          "AZ",
+          "AR",
+          "CA",
+          "CO",
+          "CT",
+          "DE",
+          "FL",
+          "GA",
+          "HI",
+          "ID",
+          "IL",
+          "IN",
+          "IA",
+          "KS",
+          "KY",
+          "LA",
+          "ME",
+          "MD",
+          "MA",
+          "MI",
+          "MN",
+          "MS",
+          "MO",
+          "MT",
+          "NE",
+          "NV",
+          "NH",
+          "NJ",
+          "NM",
+          "NY",
+          "NC",
+          "ND",
+          "OH",
+          "OK",
+          "OR",
+          "PA",
+          "RI",
+          "SC",
+          "SD",
+          "TN",
+          "TX",
+          "UT",
+          "VT",
+          "VA",
+          "WA",
+          "WV",
+          "WI",
+          "WY"
+        ]
+      },
+      "isActive": {
+          "type": "boolean"
+      }
+    },
+    "additionalProperties": false,
+    "required": []
+  }

@@ -1,6 +1,7 @@
 "use strict";
 
 const { SECRET_KEY } = require("../config");
+const db = require("../db");
 const {
   BadRequestError,
   NotFoundError,
@@ -28,7 +29,8 @@ afterAll(commonAfterAll);
  */
 
 // ******************************************* get(username)
-describe("get(usernam)", function () {
+
+describe("get(username)", function () {
   test("return a single user", async function () {
     /*
     test3 is inactive user 
@@ -42,11 +44,14 @@ describe("get(usernam)", function () {
       firstName: "f1",
       lastName: "l1",
       birthDate: "2000-01-01",
-      currentCity: "cc1",
-      currentState: "cs1",
+      city: "cc1",
+      state: "cs1",
       profileImg: "http://f1.img",
       createdOn: expect.any(Date),
       isPrivate: false,
+      email: "test1@test.com",
+      isAdmin: false, 
+      phoneNumber: null,
       following: ["test2"],
       followed: ["test2", "test4"],
     });
@@ -74,8 +79,59 @@ describe("get(usernam)", function () {
 // ****************************************** findAll()
 
 describe("findAll()", function () {
-  test("return a list of all active users", async function () {
+  test("return a list of all users", async function () {
     let users = await User.findAll();
+    expect(users).toEqual([
+      {
+        username: "test1",
+        firstName: "f1",
+        lastName: "l1",
+        currentCity: "cc1",
+        currentState: "cs1",
+        profileImg: "http://f1.img",
+        is_private: false,
+      },
+      {
+        username: "test2",
+        firstName: "f2",
+        lastName: "l2",
+        currentCity: "cc2",
+        currentState: "cs2",
+        profileImg: "http://f2.img",
+        is_private: false,
+      },
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return a list of all active users", async function () {
+    let users = await User.findAll({isActive: true});
     expect(users).toEqual([
       {
         username: "test1",
@@ -104,6 +160,403 @@ describe("findAll()", function () {
         profileImg: "http://f4.img",
         is_private: false,
       },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return a list of all inactive users", async function () {
+    let users = await User.findAll({isActive: false});
+    expect(users).toEqual([
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of users ordered by similarity when lastName filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+
+    let users = await User.findAll({ lastName: "l4" });
+    expect(users).toEqual([
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "test2",
+        firstName: "f2",
+        lastName: "l2",
+        currentCity: "cc2",
+        currentState: "cs2",
+        profileImg: "http://f2.img",
+        is_private: false,
+      },
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+      {
+        username: "test1",
+        firstName: "f1",
+        lastName: "l1",
+        currentCity: "cc1",
+        currentState: "cs1",
+        profileImg: "http://f1.img",
+        is_private: false,
+      },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of users ordered by similarity when firstName filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+
+    let users = await User.findAll({ firstName: "f4" });
+    expect(users).toEqual([
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "test2",
+        firstName: "f2",
+        lastName: "l2",
+        currentCity: "cc2",
+        currentState: "cs2",
+        profileImg: "http://f2.img",
+        is_private: false,
+      },
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+      {
+        username: "test1",
+        firstName: "f1",
+        lastName: "l1",
+        currentCity: "cc1",
+        currentState: "cs1",
+        profileImg: "http://f1.img",
+        is_private: false,
+      },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of users ordered by similarity when username filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+
+    let users = await User.findAll({ username: "test4" });
+    expect(users).toEqual([
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "test2",
+        firstName: "f2",
+        lastName: "l2",
+        currentCity: "cc2",
+        currentState: "cs2",
+        profileImg: "http://f2.img",
+        is_private: false,
+      },
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+      {
+        username: "test1",
+        firstName: "f1",
+        lastName: "l1",
+        currentCity: "cc1",
+        currentState: "cs1",
+        profileImg: "http://f1.img",
+        is_private: false,
+      },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of ACTIVE users ordered by similarity when isActive = true and username filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+    
+    // test3 will not appear in list
+
+    let users = await User.findAll({ username: "test4", isActive: true });
+    expect(users).toEqual([
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "test1",
+        firstName: "f1",
+        lastName: "l1",
+        currentCity: "cc1",
+        currentState: "cs1",
+        profileImg: "http://f1.img",
+        is_private: false,
+      },
+      {
+        username: "test2",
+        firstName: "f2",
+        lastName: "l2",
+        currentCity: "cc2",
+        currentState: "cs2",
+        profileImg: "http://f2.img",
+        is_private: false,
+      },
+      {
+        username: "test5",
+        firstName: "f5",
+        lastName: "l5",
+        currentCity: "cc5",
+        currentState: "cs5",
+        profileImg: "http://f5.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of INACTIVE users ordered by similarity when isActive = false and username filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+    
+    // test3 will not appear in list
+
+    let users = await User.findAll({ username: "test4", isActive: false });
+    expect(users).toEqual([
+      {
+        username: "test3",
+        firstName: "f3",
+        lastName: "l3",
+        currentCity: "cc3",
+        currentState: "cs3",
+        profileImg: "http://f3.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of users with similar current_city when city filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+
+    let users = await User.findAll({ city: "cc47" });
+    expect(users).toEqual([
+   
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "cs47",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },   
+      {
+        username: "test4",
+        firstName: "f4",
+        lastName: "l4",
+        currentCity: "cc4",
+        currentState: "cs4",
+        profileImg: "http://f4.img",
+        is_private: false,
+      },
+    ]);
+  });
+
+  test("return list of users where state matches exactly when state filter passed", async function () {
+    await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
+                    VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'CA', 'http://f47.img', 'PASS', 'test47@test.com', true),
+                            ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'CA', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
+
+    let users = await User.findAll({ state: "CA" });
+    expect(users).toEqual([
+   
+      {
+        username: "test47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "CA",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },
+      {
+        username: "tes47",
+        firstName: "f47",
+        lastName: "l47",
+        currentCity: "cc47",
+        currentState: "CA",
+        profileImg: "http://f47.img",
+        is_private: false,
+      },   
     ]);
   });
 });
@@ -115,19 +568,7 @@ describe("authenticate(username,password)", function () {
     let user = await User.authenticate("test1", "password1");
     expect(user).toEqual({
       username: "test1",
-      firstName: "f1",
-      lastName: "l1",
-      birthDate: "2000-01-01",
-      currentCity: "cc1",
-      currentState: "cs1",
-      phoneNumber: null,
-      profileImg: "http://f1.img",
-      email: "test1@test.com",
-      createdOn: expect.any(Date),
-      isPrivate: false,
-      isAdmin: false,
-      following: ["test2"],
-      followed: ["test2", "test4"],
+      isAdmin: false
     });
   });
 
@@ -164,31 +605,22 @@ describe("authenticate(username,password)", function () {
 describe("register(data)", function () {
   test("returns user data with valid username", async function () {
     const data = {
-      username: "test5",
-      firstName: "f5",
-      lastName: "l5",
-      birthDate: "2000-01-05",
-      currentCity: "cc5",
-      currentState: "cs5",
+      username: "test6",
+      firstName: "f6",
+      lastName: "l6",
+      birthDate: "2000-01-06",
+      currentCity: "cc6",
+      currentState: "cs6",
       phoneNumber: null,
-      profileImg: "http://f5.img",
-      password: "password5",
-      email: "test5",
-      createdOn: expect.any(Date)
+      password: "password6",
+      email: "test6",
     };
     const user = await User.register(data);
 
-    const returnData = {
-      ...data,
-      isPrivate: false,
-      isAdmin: false,
-      following: [],
-      followed: [],
-    };
-
-    delete returnData.password;
-
-    expect(user).toEqual(returnData);
+    expect(user).toEqual({
+      username: 'test6',
+      isAdmin: false
+    });
 
     const users = await User.findAll();
     const usernames = users.map((u) => u.username);
@@ -229,8 +661,8 @@ describe("update(username, data)", function () {
       firstName: "f3",
       lastName: "l3",
       birthDate: "2000-01-03",
-      currentCity: "cc3",
-      currentState: "cs3",
+      city: "cc3",
+      state: "cs3",
       phoneNumber: null,
       profileImg: "http://f3.img",
       email: "test3@test.com",
@@ -238,7 +670,7 @@ describe("update(username, data)", function () {
       isAdmin: false,
       following: [],
       followed: [],
-      createdOn: expect.any(Date)
+      createdOn: expect.any(Date),
     });
   });
 
@@ -266,7 +698,7 @@ describe("update(username, data)", function () {
       email: "test2@test.com",
       phoneNumber: null,
       isAdmin: false,
-      createdOn: expect.any(Date)
+      createdOn: expect.any(Date),
     });
   });
 
@@ -302,19 +734,19 @@ describe("update(username, data)", function () {
 
 describe("reactivate(user)", function () {
   test("reactivates existing user", async function () {
-    let users = await User.findAll();
+    let users = await User.findAll({isActive: true});
     let usernames = users.map((u) => u.username);
     expect(usernames).not.toContain("test3");
 
     await User.reactivate("test3");
-    users = await User.findAll();
+    users = await User.findAll({isActive: true});
     usernames = users.map((u) => u.username);
     expect(usernames).toContain("test3");
   });
 
   test("not found if no such user", async function () {
     try {
-      await User.deactivate('bananaMan');
+      await User.reactivate("bananaMan");
       fail();
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
@@ -326,19 +758,19 @@ describe("reactivate(user)", function () {
 
 describe("deactivate(user)", function () {
   test("deactivates existing user", async function () {
-    let users = await User.findAll();
+    let users = await User.findAll({isActive: true});
     let usernames = users.map((u) => u.username);
     expect(usernames).toContain("test1");
 
     await User.deactivate("test1");
-    users = await User.findAll();
+    users = await User.findAll({isActive: true});
     usernames = users.map((u) => u.username);
     expect(usernames).not.toContain("test1");
   });
 
   test("not found if no such user", async function () {
     try {
-      await User.deactivate('bananaMan');
+      await User.deactivate("bananaMan");
       fail();
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
@@ -348,65 +780,61 @@ describe("deactivate(user)", function () {
 
 // ***************************************** updatePassword(username, oldPassword, newPassword)
 
-describe("updatePassword(username, oldPassword, newPassword)", function(){
-    test('updates password with valid credentials', async function(){
-        const oldPasswordRes = await User.authenticate('test1', 'password1')
-        await User.updatePassword('test1', 'password1', 'password2');
+describe("updatePassword(username, oldPassword, newPassword)", function () {
+  test("updates password with valid credentials", async function () {
+    const oldPasswordRes = await User.authenticate("test1", "password1");
+    await User.updatePassword("test1", "password1", "password2");
 
-        const newPasswordRes = await User.authenticate('test1', 'password2')
-        expect(oldPasswordRes).toEqual(newPasswordRes)
+    const newPasswordRes = await User.authenticate("test1", "password2");
+    expect(oldPasswordRes).toEqual(newPasswordRes);
+  });
 
-    })
+  test("not found if no such user", async function () {
+    try {
+      await User.updatePassword("bananaMan", "password1", "password2");
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
 
-    test("not found if no such user", async function () {
-        try {
-          await User.updatePassword('bananaMan', 'password1', 'password2');
-          fail();
-        } catch (err) {
-          expect(err instanceof NotFoundError).toBeTruthy();
-        }
-      });
-
-    test("unath if invalid credentials provided", async function () {
-        try {
-          await User.updatePassword('test1', 'bananaMan', 'password2');
-          fail();
-        } catch (err) {
-          expect(err instanceof UnauthError).toBeTruthy();
-        }
-      });
-})
+  test("unath if invalid credentials provided", async function () {
+    try {
+      await User.updatePassword("test1", "bananaMan", "password2");
+      fail();
+    } catch (err) {
+      expect(err instanceof UnauthError).toBeTruthy();
+    }
+  });
+});
 
 // ***************************************** updateIsAdmin(username, key)
 
-describe("updateIsAdmin", function(){
-    test('updates isAdmin status with secret key', async function(){
-        const oldUser = await User.authenticate('test1', 'password1')
-        const oldAdminStatus = oldUser.isAdmin
-        const newUser = await User.updateIsAdmin('test1', SECRET_KEY )
-        const newAdminStatus = newUser.isAdmin
+describe("updateIsAdmin", function () {
+  test("updates isAdmin status with secret key", async function () {
+    const oldUser = await User.authenticate("test1", "password1");
+    const oldAdminStatus = oldUser.isAdmin;
+    const newUser = await User.updateIsAdmin("test1", SECRET_KEY);
+    const newAdminStatus = newUser.isAdmin;
 
-        expect(oldAdminStatus).toEqual(!newAdminStatus);
+    expect(oldAdminStatus).toEqual(!newAdminStatus);
+  });
 
-    })
+  test("not found if no such user", async function () {
+    try {
+      await User.updateIsAdmin("bananaMan", SECRET_KEY);
+      fail();
+    } catch (err) {
+      expect(err instanceof NotFoundError).toBeTruthy();
+    }
+  });
 
-    test("not found if no such user", async function () {
-        try {
-          await User.updateIsAdmin('bananaMan', SECRET_KEY );
-          fail();
-        } catch (err) {
-          expect(err instanceof NotFoundError).toBeTruthy();
-        }
-      });
-
-    test("unath if invalid key provided", async function () {
-        try {
-          await User.updateIsAdmin('test1', 'bananaMan' );
-          fail();
-        } catch (err) {
-          expect(err instanceof UnauthError).toBeTruthy();
-        }
-      });
-})
-
-
+  test("unath if invalid key provided", async function () {
+    try {
+      await User.updateIsAdmin("test1", "bananaMan");
+      fail();
+    } catch (err) {
+      expect(err instanceof UnauthError).toBeTruthy();
+    }
+  });
+});

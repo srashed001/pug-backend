@@ -43,7 +43,6 @@ class Game {
    *                  state,
    *                  createdOn,
    *                  createdBy,
-   *                  players,
    *                  daysDiff }
    *
    *    where daysDiff is the difference in days between game date and today
@@ -90,13 +89,14 @@ class Game {
    *  - state
    *  - host {username} (WHERE created_by = host)
    *  - joined {username} (returns all games a user has joined)
-   * @param {boolean} isActive
-   *  - true (WHERE is_active = true)
-   *  = false (WHERE is_active = false)
-   * @param {string} gameStatus
-   *  - 'pending' returns games whose game_date has not passed
-   *  - 'resolved' returns games whose game_date has passed
-   *  - undefined returns all games regardless of game_date
+   *  - isActive
+   *    - true (WHERE is_active = true)
+   *    = false (WHERE is_active = false)
+   *    - undefined returns all users regardless of isActive status
+   *  - gameStatus
+   *    - 'pending' returns games whose game_date has not passed
+   *    - 'resolved' returns games whose game_date has passed
+   *    - undefined returns all games regardless of game_date
    *  Throw bad request if any other value is passed
    *
    * @returns {array} [{id,
@@ -115,36 +115,29 @@ class Game {
    *  where daysDiff = count of days until game_date (neg number indicates how many days have passed since game_date)
    *
    */
-  static async findAll(searchFilters = {}, isActive, gameStatus) {
+  static async findAll(searchFilters = {}) {
     let findAllQuery = `SELECT g.id,
-                        g.title,
-                        g.description, 
-                        g.game_date AS "date", 
-                        g.game_time AS "time", 
-                        g.game_address AS "address", 
-                        g.game_city AS "city", 
-                        g.game_state AS "state", 
-                        g.created_on AS "createdOn", 
-                        g.created_by AS "createdBy", 
-                        (SELECT (COUNT(u.username) FILTER (WHERE u.is_active = true))::integer AS "players" 
-                        FROM users AS u 
-                        LEFT JOIN users_games AS ug 
-                        ON u.username = ug.username 
-                        WHERE ug.game_id = g.id),
-                        (g.game_date::date - current_date::date) AS "daysDiff",
-                        g.is_active AS "isActive"
+                               g.title,
+                               g.game_date AS "date", 
+                               g.game_time AS "time", 
+                               g.game_address AS "address", 
+                               g.game_city AS "city", 
+                               g.game_state AS "state", 
+                               g.created_by AS "createdBy", 
+                               (SELECT (COUNT(u.username) FILTER (WHERE u.is_active = true))::integer AS "players" 
+                                  FROM users AS u 
+                                  LEFT JOIN users_games AS ug 
+                                  ON u.username = ug.username 
+                                  WHERE ug.game_id = g.id),
+                               (g.game_date::date - current_date::date) AS "daysDiff",
+                               g.is_active AS "isActive"
                       FROM games AS g
                       LEFT JOIN users_games AS ug
                       ON g.id = ug.game_id
                       LEFT JOIN users AS u 
                       on ug.username = u.username`;
 
-    const [query, queryValues] = sqlForGameFilters(
-      findAllQuery,
-      searchFilters,
-      isActive,
-      gameStatus
-    );
+    const [query, queryValues] = sqlForGameFilters(findAllQuery, searchFilters);
     const gamesRes = await db.query(query, queryValues);
 
     return gamesRes.rows;
@@ -299,6 +292,7 @@ class Game {
 
     if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
   }
+
   /**
    * Reactivates game with gameId
    *
@@ -344,9 +338,15 @@ class Game {
   }
 
   /**Given a gameId, returns data on game comments
-   * Only return game comment data when user is_active = true
+   *  optional fitlers
+   *  - isGameCommentsActive - addtional filter for returning games active/inactive comments
+   *  - isUsersActive - additional filter for returning comments from active/inactive users
+   *
+   * Throws BadRequestError if isCommentsActive/isUsersActive !== boolean, null, undefined
    *
    * @param {number} gameId
+   * @param {boolean} isGameCommentsActive
+   * @param {boolean} isUsersActive
    * @returns {array} {[{id, username, comment, createdOn} ...]}
    *
    * Throws NotFoundError if gameId does not exist
@@ -400,8 +400,13 @@ class Game {
   }
 
   /**Given a gameId, returns data on game players
+   * optional fitlers
+   *  - isUserActive - additional filter for returning active/inactive users
+   *
+   * Throws BadRequestError if isUser !== boolean, null, undefined
    *
    * @param {number} gameId
+   * @param {boolean} isUserActive
    * @returns {array} {[{id, username, comment, createdOn} ...]}
    *
    * Throws NotFoundError if gameId does not exist
@@ -424,7 +429,7 @@ class Game {
         "isUserActive accepts undefined, null, or boolean as valid data type"
       );
 
-    let query = `SELECT array_remove(array_agg(ug.username), NULL) AS "players"
+    let query = `SELECT json_object_agg(ug.username, u.profile_img) as "players"
                         FROM users_games AS ug
                         LEFT JOIN users AS u
                         ON ug.username = u.username
@@ -435,7 +440,7 @@ class Game {
 
     query += " GROUP BY ug.game_id";
 
-    const playersRes = await db.query(query, [gameId])
+    const playersRes = await db.query(query, [gameId]);
 
     const players = playersRes.rows;
     if (!players.length) return players;
@@ -450,7 +455,7 @@ class Game {
    *
    * @param {number} gameId
    * @param {string} username
-   * @returns {array} [username, ...]
+   * @returns {object} {username: profileImg, ...}
    * throws InactiveError if user/game are inactive
    * throws NotFoundError if user/game not found
    */
@@ -475,7 +480,7 @@ class Game {
       [gameId, username]
     );
     const playersRes = await db.query(
-      `SELECT array_remove(array_agg(ug.username), NULL) AS "players"
+      `SELECT json_object_agg(ug.username, u.profile_img) AS "players"
           FROM users_games AS ug
           LEFT JOIN users AS u
           ON ug.username = u.username
@@ -487,6 +492,105 @@ class Game {
     if (!players.length) return players;
 
     return players[0].players;
+  }
+
+  /**Removes user with username from game with gameId
+   *
+   * @param {number} gameId
+   * @param {string} username
+   * @returns {object} {username: profileImg, ...}
+   *
+   * throws InactiveError if user/game are inactive
+   * throws NotFoundError if user/game not found
+   */
+  static async removeUserGame(gameId, username) {
+    const usernameGameCheck = await db.query(
+      `SELECT (SELECT is_active AS "game" FROM games WHERE id = $1), (SELECT is_active AS 
+        "user" FROM users WHERE username = $2)`,
+      [gameId, username]
+    );
+    const result = usernameGameCheck.rows[0];
+
+    if (result.game === null) throw new NotFoundError(NotFoundMsgGame(gameId));
+    if (result.user === null)
+      throw new NotFoundError(NotFoundMsgUser(username));
+    if (!result.game) throw new InactiveError(InactiveMsgGame(gameId));
+    if (!result.user) throw new InactiveError(InactiveMsgUser(username));
+
+    await db.query(
+      `DELETE FROM users_games
+       WHERE game_id = $1 AND username = $2`,
+      [gameId, username]
+    );
+    const playersRes = await db.query(
+      `SELECT json_object_agg(ug.username, u.profile_img) AS "players"
+          FROM users_games AS ug
+          LEFT JOIN users AS u
+          ON ug.username = u.username
+          WHERE ug.game_id = $1 AND u.is_active = true
+          GROUP by game_id`,
+      [gameId]
+    );
+    const players = playersRes.rows;
+    if (!players.length) return players;
+
+    return players[0].players;
+  }
+
+  /** Given commentData, creates a comment from username for game with gameId
+   *
+   * @param {object} commentData - {gameId, username, comment}
+   * @returns {object} {id, username, comment, createdOn}
+   *
+   * Throws NotFound if username/gameId do not exist
+   */
+  static async addGameComment({ gameId, username, comment }) {
+    const userCheckQuery = `SELECT username FROM users WHERE username = $1`;
+    const gameCheckQuery = `SELECT id FROM games WHERE id = $2`;
+    const checkRes = await db.query(
+      `SELECT (${userCheckQuery}) as "user", (${gameCheckQuery}) as "game"`,
+      [username, gameId]
+    );
+    const check = checkRes.rows[0];
+
+    if (!check.user) throw new NotFoundError(NotFoundMsgUser(username));
+    if (!check.game) throw new NotFoundError(NotFoundMsgGame(gameId));
+
+    const result = await db.query(
+      `
+    INSERT INTO games_comments(game_id, username, comment, is_active)
+    VALUES ($1, $2, $3, true)
+    RETURNING id, username, comment, created_on AS "createdOn"
+`,
+      [gameId, username, comment]
+    );
+
+    return result.rows[0];
+  }
+
+  /** Given commentId, deactivates game comment
+   *
+   * @param {number} commentId
+   * @returns {object} {id, username, comment, createdOn} comment details
+   *
+   * Throws NotFound if commentId do not exist
+   */
+  static async deactivateGameComment(commentId) {
+    const commentCheck = await db.query(
+      `SELECT id FROM games_comments WHERE id = $1`,
+      [commentId]
+    );
+    if (!commentCheck.rows[0])
+      throw new NotFoundError(`No comment: ${commentId}`);
+
+    const result = await db.query(
+      `UPDATE games_comments
+       SET is_active = false
+       WHERE id = $1
+       RETURNING id, username, comment, created_on as "createdOn"`,
+      [commentId]
+    );
+    return result.rows[0];
   }
 }
 

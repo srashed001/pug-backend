@@ -34,40 +34,40 @@ function sqlForPartialUpdate(dataToUpdate, jsToSql) {
 
 /**
  * Helper for making selective game search queries
- * 
+ *
  * The calling function can use it to make a game SQL SELECT
  * statement.
- * 
+ *
  * @param {string} query preliminary query detailing columns selected
  * @param {object} searchFilters (optional filter on searchFilters
- *  - date 
- *  = city 
- *  - state 
+ *  - date
+ *  = city
+ *  - state
  *  - host {username} (WHERE created_by = host)
  *  - joined {username} (returns all games a user has joined)
- * @param {boolean} isActive 
- *  - true (WHERE is_active = true)
- *  = false (WHERE is_active = false)
- * @param {string} gameStatus 
- *  - 'pending' returns games whose game_date has not passed 
- *  - 'resolved' returns games whose game_date has passed 
- *  - undefined returns all games regardless of game_date
+ *  - isActive
+ *      - true (WHERE is_active = true)
+ *      = false (WHERE is_active = false)
+ *  - gameStatus
+ *      - 'pending' returns games whose game_date has not passed
+ *      - 'resolved' returns games whose game_date has passed
+ *      - undefined returns all games regardless of game_date
  *  Throw bad request if any other value is passed
- * 
+ *
  * @returns {array} [query, queryValues]
  *  - query  = SELECT STATEMENT
  *  - queryValues = [SQL statement parameters]
- * 
- * @example {SELECT g.id FROM games..., {date: '2022-04-01}, true, 'pending'} => 
+ *
+ * @example {SELECT g.id FROM games..., {date: '2022-04-01', isActive: true, gameStatus: 'pending'} =>
  *  {[`SELECT g.id FROM games...WHERE g.is_active = $1 AND daysDiff > -1 AND g.gameDate = $2,
  *      [true, '2022-04-01']]}
  */
-function sqlForGameFilters(query, searchFilters = {}, isActive, gameStatus) {
-
+function sqlForGameFilters(query, searchFilters = {}) {
   let whereExpressions = [];
   let queryValues = [];
 
-  const { date, city, state, host, joined } = searchFilters ? searchFilters : {};
+  const { date, city, state, host, joined, isActive, gameStatus } =
+    searchFilters ? searchFilters : {};
 
   if (isActive === true || isActive === false) {
     queryValues.push(isActive);
@@ -100,8 +100,8 @@ function sqlForGameFilters(query, searchFilters = {}, isActive, gameStatus) {
   }
 
   if (city) {
-    queryValues.push(`%${city}%`);
-    whereExpressions.push(`g.game_city ILIKE $${queryValues.length}`);
+    queryValues.push(city);
+    whereExpressions.push(`SIMILARITY(game_city, $${queryValues.length}) > .4`);
   }
 
   if (state) {
@@ -113,14 +113,37 @@ function sqlForGameFilters(query, searchFilters = {}, isActive, gameStatus) {
     query += " WHERE " + whereExpressions.join(" AND ");
   }
 
-  query += " GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id";
+  query +=
+    " GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id";
 
   return [query, queryValues];
 }
 
-
-function sqlForGameComments(query, gameId, isGameCommentsActive, isUsersActive) {
-
+/** Helper for making selective game comment search queries
+ *
+ * The calling function can use it to make a game comment SQL SELECT
+ * statement.
+ *
+ * @param {string} query preliminary query detailing columns selected
+ * @param {number} gameId
+ * @param {boolean} isGameCommentsActive
+ *  - true searches for active game comments
+ *  - false searches for inactive game comments
+ *  - undefined/null searches for all game comments
+ * @param {boolean} isUsersActive
+ *  - true searches for comments from active users
+ *  - false searches for comments from inactive users
+ *  - undefined/null searches for game comments for all users
+ * @returns {array} [query, queryValues]
+ *  - query  = SELECT STATEMENT
+ *  - queryValues = [SQL statement parameters]
+ */
+function sqlForGameComments(
+  query,
+  gameId,
+  isGameCommentsActive,
+  isUsersActive
+) {
   let whereExpressions = [`gc.game_id = $1`];
   let queryValues = [gameId];
 
@@ -133,9 +156,101 @@ function sqlForGameComments(query, gameId, isGameCommentsActive, isUsersActive) 
     whereExpressions.push(`u.is_active = $${queryValues.length}`);
   }
 
-  query += " WHERE " + whereExpressions.join(" AND ") + " ORDER BY gc.created_on DESC"
+  query +=
+    " WHERE " + whereExpressions.join(" AND ") + " ORDER BY gc.created_on DESC";
 
   return [query, queryValues];
 }
 
-module.exports = { sqlForPartialUpdate, sqlForGameFilters, sqlForGameComments };
+/**
+ * Helper for making selective user search queries
+ *
+ * The calling function can use it to make a game SQL SELECT
+ * statement.
+ *
+ * @param {string} query preliminary query detailing columns selected
+ * @param {object} searchFilters (optional filter on searchFilters
+ *  - username
+ *  = firstName
+ *  - lastName
+ *  - city
+ *  - state
+ *  - isActive
+ *      - true (WHERE is_active = true)
+ *      = false (WHERE is_active = false)
+ *
+ * @returns {array} [query, queryValues]
+ *  - query  = SELECT STATEMENT
+ *  - queryValues = [SQL statement parameters]
+ *
+ * @example {SELECT username..., { state: 'CA', isActive: true } =>
+ *  {[`SELECT username FROM users...WHERE g.is_active = $1 AND state = $2,
+ *      [true, 'CA']]}
+ */
+function sqlForUsersFilters(query, searchFilters = {}) {
+  let whereExpressions = [];
+  let orderByExpressions = [];
+  let queryValues = [];
+
+  const { username, firstName, lastName, city, state, isActive } = searchFilters
+    ? searchFilters
+    : {};
+
+  if (isActive === true || isActive === false) {
+    queryValues.push(isActive);
+    whereExpressions.push(`is_active = $${queryValues.length}`);
+  }
+
+  if (username) {
+    queryValues.push(username);
+    orderByExpressions.push(
+      `SIMILARITY(username, $${queryValues.length}) DESC`
+    );
+  }
+
+  if (firstName) {
+    queryValues.push(firstName);
+    orderByExpressions.push(
+      `SIMILARITY(first_name, $${queryValues.length}) DESC`
+    );
+  }
+
+  if (lastName) {
+    queryValues.push(lastName);
+    orderByExpressions.push(
+      `SIMILARITY(last_name, $${queryValues.length}) DESC`
+    );
+  }
+
+  if (city) {
+    queryValues.push(city);
+    whereExpressions.push(
+      `SIMILARITY(current_city, $${queryValues.length}) > .4`
+    );
+    orderByExpressions.push(
+      `SIMILARITY(current_city, $${queryValues.length}) DESC`
+    );
+  }
+
+  if (state) {
+    queryValues.push(state);
+    whereExpressions.push(`current_state = $${queryValues.length}`);
+  }
+
+  if (whereExpressions.length > 0) {
+    query += " WHERE " + whereExpressions.join(" AND ");
+  }
+
+  if (orderByExpressions.length) {
+    query += " ORDER BY " + orderByExpressions.join(", ");
+  }
+
+  return [query, queryValues];
+}
+
+module.exports = {
+  sqlForPartialUpdate,
+  sqlForGameFilters,
+  sqlForGameComments,
+  sqlForUsersFilters,
+};

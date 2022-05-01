@@ -6,7 +6,10 @@ const {
   NotFoundError,
   InactiveError,
   BadRequestError,
+  UnauthError,
 } = require("../expressError");
+
+const Message = require("./message");
 
 function NotFoundInvite(inviteId) {
   return `No invite: ${inviteId}`;
@@ -28,17 +31,53 @@ function InactiveMsgUser(username) {
 }
 
 class Invite {
-  /** Create an invite to a game from data, update db, return new invite data
+  /** Create an group invite to a game from data, update db, return new invite data
    * creates invite only if to_user does not have 'pending' invite from active user
    *
-   * @param {object} data {gameId, fromUser, toUser}
+   * @param {object} data {gameId, fromUser, userArr}
    * @returns {object} {id, toUser, createdOn}
    *
    * Throws NotFoundError if gameId, fromUser, or toUser do not exist
    * Throws Inactive if game, fromUser, or toUser are inactive
    * Throws BadRequest if to_user already has 'pending' invites from another active user
    */
-  static async create(data) {
+  static async createGroup({ gameId, fromUser, usersArr }) {
+    // steal method from Message model which throws NotFound is user in usersArr doesnt exist
+    await Message.checkUsersExist([...usersArr, fromUser]);
+    const gameCheck = await db.query(
+      'SELECT is_active as "game" FROM games WHERE id = $1',
+      [gameId]
+    );
+    if (!gameCheck.rows[0]) throw new NotFoundError(NotFoundMsgGame(gameId));
+    if (!gameCheck.rows[0].game)
+      throw new InactiveError(InactiveMsgGame(gameId));
+
+    const insertStatements = usersArr.map((el, i) => `($1, $2, $${i + 3})`);
+
+    const inviteRes = await db.query(
+      `
+            INSERT INTO users_invites (game_id, from_user, to_user)
+            VALUES ${insertStatements.join(", ")}
+            RETURNING id, to_user as "toUser", created_on as "createdOn", game_id AS "gameId"`,
+      [gameId, fromUser, ...usersArr]
+    );
+
+    const invite = inviteRes.rows;
+
+    return invite;
+  }
+
+  /** Create an invite to a game from data, update db, return new invite data
+   * creates invite only if to_user does not have 'pending' invite from active user
+   *
+   * @param {object} data {gameId, fromUser, userArr}
+   * @returns {object} {id, toUser, createdOn}
+   *
+   * Throws NotFoundError if gameId, fromUser, or toUser do not exist
+   * Throws Inactive if game, fromUser, or toUser are inactive
+   * Throws BadRequest if to_user already has 'pending' invites from another active user
+   */
+  static async create({ gameId, fromUser, toUser }) {
     const gameQuery = 'SELECT is_active as "game" FROM games WHERE id = $1';
     const fromUserQuery =
       'SELECT is_active as "fromUser" FROM users WHERE username = $2';
@@ -52,34 +91,32 @@ class Invite {
 
     const checkRes = await db.query(
       `SELECT (${gameQuery}), (${fromUserQuery}), (${toUserQuery}), (${inviteQuery})`,
-      [data.gameId, data.fromUser, data.toUser]
+      [gameId, fromUser, toUser]
     );
 
     const checks = checkRes.rows[0];
 
     // checks
-    if (checks.game === null)
-      throw new NotFoundError(NotFoundMsgGame(data.gameId));
-    if (!checks.game) throw new InactiveError(InactiveMsgGame(data.gameId));
+    if (checks.game === null) throw new NotFoundError(NotFoundMsgGame(gameId));
+    if (!checks.game) throw new InactiveError(InactiveMsgGame(gameId));
 
     if (checks.fromUser === null)
-      throw new NotFoundError(NotFoundMsgGame(data.fromUser));
-    if (!checks.fromUser)
-      throw new InactiveError(InactiveMsgGame(data.fromUser));
+      throw new NotFoundError(NotFoundMsgGame(fromUser));
+    if (!checks.fromUser) throw new InactiveError(InactiveMsgGame(fromUser));
 
     if (checks.toUser === null)
-      throw new NotFoundError(NotFoundMsgGame(data.toUser));
-    if (!checks.toUser) throw new InactiveError(InactiveMsgGame(data.toUser));
+      throw new NotFoundError(NotFoundMsgGame(toUser));
+    if (!checks.toUser) throw new InactiveError(InactiveMsgGame(toUser));
 
     if (checks.invite)
-      throw new BadRequestError(`User: ${data.toUser} has invite 'pending'`);
+      throw new BadRequestError(`User: ${toUser} has invite 'pending'`);
 
     const inviteRes = await db.query(
       `
             INSERT INTO users_invites (game_id, from_user, to_user)
             VALUES ($1, $2, $3)
-            RETURNING id, to_user as "toUser", created_on as "createdOn"`,
-      [data.gameId, data.fromUser, data.toUser]
+            RETURNING id, to_user as "toUser", created_on as "createdOn", game_id AS "gameId"`,
+      [gameId, fromUser, toUser]
     );
 
     const invite = inviteRes.rows[0];
@@ -177,10 +214,9 @@ class Invite {
       [username]
     );
 
-    const invitesSent = invitesRes.rows;
-
-    return invitesSent;
+    return invitesRes.rows;
   }
+
   /**Given a username, returns data on all invites sent to active users by user
    * data returned will not include data on inactive users or inactive games
    *
@@ -215,9 +251,7 @@ class Invite {
       [username]
     );
 
-    const invitesSent = invitesRes.rows;
-
-    return invitesSent;
+    return invitesRes.rows;
   }
 
   /**Given a username, returns data on all invites received by user
@@ -250,10 +284,9 @@ class Invite {
       [username]
     );
 
-    const invitesSent = invitesRes.rows;
-
-    return invitesSent;
+    return invitesRes.rows;
   }
+
   /**Given a username, returns all invites received from active users to user
    * data on inactive users or inactive games will not be returned
    *
@@ -288,9 +321,7 @@ class Invite {
       [username]
     );
 
-    const invitesSent = invitesRes.rows;
-
-    return invitesSent;
+    return invitesRes.rows;
   }
 
   /**Given a gameId, returns data on invites sent for game
@@ -345,7 +376,7 @@ class Invite {
    *    'accepted'
    *    'denied'
    *    'cancelled'
-   *    'pending'
+   *    
    *
    * @param {number} inviteId
    * @param {string} status
@@ -355,15 +386,10 @@ class Invite {
    * Throws BadRequestError if updated status with current status
    * Throws BadRequestError if updated status is not valid status
    */
-  static async update(inviteId, status) {
-    const statusCheckSet = new Set([
-      "accepted",
-      "denied",
-      "cancelled",
-      "pending",
-    ]);
+  static async update(inviteId, username, status) {
+    const statusCheckSet = new Set(["accepted", "denied", "cancelled"]);
     const inviteCheck = await db.query(
-      `SELECT status FROM users_invites WHERE id = $1`,
+      `SELECT to_user, from_user, status FROM users_invites WHERE id = $1`,
       [inviteId]
     );
     const invite = inviteCheck.rows[0];
@@ -373,6 +399,12 @@ class Invite {
       throw new BadRequestError(`Invite status already '${status}'`);
     if (!statusCheckSet.has(status))
       throw new BadRequestError(`Updated invite status invalid`);
+    if (invite.to_user !== username && invite.from_user !== username)
+      throw new UnauthError(`${username} cannot make this request`);
+    if (invite.from_user === username && status !== "cancelled")
+      throw new UnauthError(`${username} cannot make this request`);
+    if (invite.to_user === username && status === "cancelled")
+      throw new UnauthError(`${username} cannot make this request`);
 
     const updatedInviteRes = await db.query(
       `UPDATE users_invites
