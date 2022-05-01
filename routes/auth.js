@@ -8,12 +8,11 @@ const router = new express.Router();
 const { createToken } = require("../helper/tokens");
 const userAuthSchema = require("../schemas/userAuth.json");
 const userRegisterSchema = require("../schemas/userRegister.json");
-const jwt = require("jsonwebtoken");
-const { SECRET_KEY } = require("../config");
+
 
 /** POST /auth/token: {username, password} => {token}
  *
- * @returns {string} JWT token for authenticating further requests
+ * Returns JWT token for authenticating further requests
  *
  * Authorization required: none
  */
@@ -38,7 +37,7 @@ router.post("/token", async function (req, res, next) {
  * user must include {username, password, firstName, lastName, birthDate, currentCity, currentState, email }
  * optional field {phoneNumber}
  * 
- * @returns {string} JWT token for authenticating further requests
+ * Returns JWT token for authenticating further requests
  * 
  * Authorization required: none
  */
