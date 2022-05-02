@@ -33,11 +33,11 @@
       "type": "string",
       "format": "date"
     },
-    "currentCity": {
+    "city": {
       "type": "string",
       "minLength": 1
     },
-    "currentState": {
+    "state": {
       "type": "string",
       "enum": [
         "AL",
@@ -102,5 +102,5 @@
     }
   },
   "additionalProperties": false,
-  "required": ["username", "firstName", "lastName", "password", "email", "birthDate", "currentCity", "currentState"]
+  "required": ["username", "firstName", "lastName", "password", "email", "birthDate", "city", "state"]
 }

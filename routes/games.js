@@ -97,6 +97,7 @@ router.get("/:gameId", async function (req, res, next) {
 
 /** PATCH /[gameId] {data} => {game}
  * Data can include:
+ * Data can include:
  *  { title, description, date, time, address, city, state }
  *
  * Returns { id, title, description, date, time, address, city, state, createdOn, createdBy, daysDiff}
@@ -119,9 +120,9 @@ router.patch(`/:gameId`, ensureHostOrAdmin, async function (req, res, next) {
   }
 });
 
-/** POST /[gameId]/comment {data} => {gameComment}
+/** POST /[gameId]/comment/:usernme {data} => {gameComment}
  *  Data must include:
- *     {username, comment}
+ *     {comment}
  *
  * Returns {id, username, comment, createdOn}
  *
@@ -152,8 +153,6 @@ router.post(
 );
 
 /** DELETE /comment/[commentId] {data} => {action, gameComment}
- *  Data must include:
- *     {username, comment}
  *
  * Returns {action: 'deactivate', comment: {id, username, comment, createdOn}}
  *

@@ -60,7 +60,7 @@ router.get("/", async function (req, res, next) {
 /** GET /[username] => {user}
  *
  * Returns {user, games}
- *  where user is {username, firstName, lastName, city, state, profileImg, createOn, isPrivate, email, isAdmin, phoneNumber, following, followed}
+ *  where user is {username, firstName, lastName, city, state, profileImg, createdOn, isPrivate, email, isAdmin, phoneNumber, following, followed}
  *  where game is {hosted: {pending, resolved}, joined: {pending, resolved}}
  *  - where hosted are games username hosted
  *         - pending => games whose date has not passed {id, title, date, time, address, city, state, createdBy, players, daysDiff, isActive}

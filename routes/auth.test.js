@@ -84,8 +84,8 @@ describe("POST /auth/register", function () {
       firstName: "f6",
       lastName: "l6",
       birthDate: "1990-06-06",
-      currentCity: "cc6",
-      currentState: "CA",
+      city: "cc6",
+      state: "CA",
       password: "password6",
       email: "test6@test.com",
     });
@@ -110,8 +110,8 @@ describe("POST /auth/register", function () {
       firstName: "f6",
       lastName: "l6",
       birthDate: "1990-06-06",
-      currentCity: "cc6",
-      currentState: "California",
+      city: "cc6",
+      state: "California",
       password: "password6",
       email: "test6@test.com",
     });
@@ -126,8 +126,8 @@ describe("POST /auth/register", function () {
       firstName: "f6",
       lastName: "l6",
       birthDate: "1990-06-06",
-      currentCity: "cc6",
-      currentState: "CA",
+      city: "cc6",
+      state: "CA",
       password: "password6",
       email: "test.com",
     });
@@ -141,8 +141,8 @@ describe("POST /auth/register", function () {
       firstName: "f6",
       lastName: "l6",
       birthDate: "1990-06-06",
-      currentCity: "cc6",
-      currentState: "CA",
+      city: "cc6",
+      state: "CA",
       password: "password6",
       email: "test.com",
     });
