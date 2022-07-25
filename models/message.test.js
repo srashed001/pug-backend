@@ -272,28 +272,90 @@ describe(`getUsersThread(username)`, function () {
     expect(result).toEqual([
       {
         threadId: testThreadsIds[0],
-        party: { test1: "http://f1.img", test2: "http://f2.img" },
-        lastMessage: { test1: expect.any(String) },
+        party: [
+          {
+            username: "test1",
+            firstName: "f1",
+            lastName: "l1",
+            profileImg: "http://f1.img",
+          },
+          {
+            username: "test2",
+            firstName: "f2",
+            lastName: "l2",
+            profileImg: "http://f2.img",
+          },
+        ],
+        lastMessage: {
+          message: "delayed test message1",
+          timestamp: expect.any(String),
+        },
       },
       {
         threadId: testThreadsIds[2],
-        party: {
-          test5: "http://f5.img",
-          test2: "http://f2.img",
-          test3: "http://f3.img",
-          test4: "http://f4.img",
-          test1: "http://f1.img",
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+          {
+            username: "test4",
+            profileImg: "http://f4.img",
+            firstName: "f4",
+            lastName: "l4",
+          },
+          {
+            username: "test5",
+            profileImg: "http://f5.img",
+            firstName: "f5",
+            lastName: "l5",
+          },
+        ],
+        lastMessage: {
+          message: "test message7",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test1: expect.any(String) },
       },
       {
         threadId: testThreadsIds[1],
-        party: {
-          test2: "http://f2.img",
-          test3: "http://f3.img",
-          test1: "http://f1.img",
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+        ],
+        lastMessage: {
+          message: "test message5",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test2: expect.any(String) },
       },
     ]);
 
@@ -306,14 +368,42 @@ describe(`getUsersThread(username)`, function () {
     expect(result).toEqual([
       {
         threadId: testThreadsIds[2],
-        party: {
-          test1: "http://f1.img",
-          test2: "http://f2.img",
-          test3: "http://f3.img",
-          test4: "http://f4.img",
-          test5: "http://f5.img",
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+          {
+            username: "test4",
+            profileImg: "http://f4.img",
+            firstName: "f4",
+            lastName: "l4",
+          },
+          {
+            username: "test5",
+            profileImg: "http://f5.img",
+            firstName: "f5",
+            lastName: "l5",
+          },
+        ],
+        lastMessage: {
+          message: "test message11",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test4: expect.any(String) },
       },
     ]);
   });
@@ -395,9 +485,9 @@ describe(`createMessage(msgFrom, msg, usersArr)`, function () {
     // getUsersThreads should return most recent message and thread at the top
     const threads = await Message.getUserThreads("test2");
     expect(result.threadId).toEqual(threads[0].threadId);
-    const threadsUser = Object.keys(threads[0].lastMessage);
-    expect(result.messageFrom).toEqual(threadsUser[0]);
-    expect(result.createdOn).toEqual(new Date(threads[0].lastMessage.test2));
+    const { lastMessage, timestamp } = threads[0];
+    expect(result.message).toEqual(lastMessage.message);
+    expect(result.createdOn).toEqual(new Date(lastMessage.timestamp));
 
     // checks that thread now exists between test2 and test4
     const usersThreadsAfter = await Message.getThreadByUsers([
@@ -433,9 +523,9 @@ describe(`createMessage(msgFrom, msg, usersArr)`, function () {
     // getUsersThreads should return most recent message and thread at the top
     const threads = await Message.getUserThreads("test1");
     expect(result.threadId).toEqual(threads[0].threadId);
-    const threadsUser = Object.keys(threads[0].lastMessage);
-    expect(result.messageFrom).toEqual(threadsUser[0]);
-    expect(result.createdOn).toEqual(new Date(threads[0].lastMessage.test2));
+    const { lastMessage, timestamp } = threads[0];
+    expect(result.message).toEqual(lastMessage.message);
+    expect(result.createdOn).toEqual(new Date(lastMessage.timestamp));
 
     // checks that thread now exists between test2 and test4
     const usersThreadsAfter = await Message.getThreadByUsers([
@@ -500,18 +590,20 @@ describe(`getMsgsByThread(threadId, username)`, function () {
       testThreadsIds[2],
       "test1"
     );
-    expect(test1Messages).toEqual([
+    expect(test1Messages.messages).toEqual([
       {
         id: testMsgIds[5],
         messageFrom: "test3",
         message: "test message6",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[6],
         messageFrom: "test1",
         message: "test message7",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
     ]);
 
@@ -519,42 +611,48 @@ describe(`getMsgsByThread(threadId, username)`, function () {
       testThreadsIds[2],
       "test2"
     );
-    expect(test2Messages).toEqual([
+    expect(test2Messages.messages).toEqual([
       {
         id: testMsgIds[5],
         messageFrom: "test3",
         message: "test message6",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[6],
         messageFrom: "test1",
         message: "test message7",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[7],
         messageFrom: "test2",
         message: "test message8",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[8],
         messageFrom: "test1",
         message: "test message9",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[9],
         messageFrom: "test3",
         message: "test message10",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
       {
         id: testMsgIds[10],
         messageFrom: "test4",
         message: "test message11",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2],
       },
     ]);
   });
@@ -621,10 +719,9 @@ describe(`respondThread(threadId, username)`, function () {
       message: "new message",
       createdOn: expect.any(Date),
     });
-    delete result.threadId;
 
     const messages = await Message.getMsgsByThread(testThreadsIds[1], "test3");
-    expect(messages).toContainEqual(result);
+    expect(messages.messages).toContainEqual(result);
   });
 
   test(`returns notFound is username is not part of thread`, async function () {
@@ -671,20 +768,55 @@ describe(`deleteThread(threadId, username)`, function () {
     ]);
 
     let threads = await Message.getUserThreads("test1");
+
     expect(threads).toEqual([
       {
         threadId: testThreadsIds[1],
-        party: {
-          test1: "http://f1.img",
-          test2: "http://f2.img",
-          test3: "http://f3.img",
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+        ],
+        lastMessage: {
+          message: "test message5",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test2: expect.any(String) },
       },
       {
         threadId: testThreadsIds[0],
-        party: { test1: "http://f1.img", test2: "http://f2.img" },
-        lastMessage: { test2: expect.any(String) },
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+        ],
+        lastMessage: {
+          message: "test message2",
+          timestamp: expect.any(String),
+        },
       },
     ]);
 
@@ -702,31 +834,99 @@ describe(`deleteThread(threadId, username)`, function () {
     expect(threads).toEqual([
       {
         threadId: testThreadsIds[4],
-        party: {
-          test2: "http://f2.img",
-          test4: "http://f4.img",
-          test3: "http://f3.img",
+        party: [
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+          {
+            username: "test4",
+            profileImg: "http://f4.img",
+            firstName: "f4",
+            lastName: "l4",
+          },
+        ],
+        lastMessage: {
+          message: "test message16",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test2: expect.any(String) },
       },
       {
         threadId: testThreadsIds[3],
-        party: { test2: "http://f2.img", test3: "http://f3.img" },
-        lastMessage: { test3: expect.any(String) },
+        party: [
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+        ],
+        lastMessage: {
+          message: "test message13",
+          timestamp: expect.any(String),
+        },
       },
       {
         threadId: testThreadsIds[1],
-        party: {
-          test2: "http://f2.img",
-          test1: "http://f1.img",
-          test3: "http://f3.img",
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+          {
+            username: "test3",
+            profileImg: "http://f3.img",
+            firstName: "f3",
+            lastName: "l3",
+          },
+        ],
+        lastMessage: {
+          message: "test message5",
+          timestamp: expect.any(String),
         },
-        lastMessage: { test2: expect.any(String) },
       },
       {
         threadId: testThreadsIds[0],
-        party: { test1: "http://f1.img", test2: "http://f2.img" },
-        lastMessage: { test2: expect.any(String) },
+        party: [
+          {
+            username: "test1",
+            profileImg: "http://f1.img",
+            firstName: "f1",
+            lastName: "l1",
+          },
+          {
+            username: "test2",
+            profileImg: "http://f2.img",
+            firstName: "f2",
+            lastName: "l2",
+          },
+        ],
+        lastMessage: {
+          message: "test message2",
+          timestamp: expect.any(String),
+        },
       },
     ]);
   });
@@ -764,15 +964,16 @@ describe(`deleteThread(threadId, username)`, function () {
 describe(`deleteMsg(messageId, username)`, function () {
   test(`deactivates user message`, async function () {
     const result = await Message.deleteMsg(testMsgIds[5], "test1");
-    expect(result).toEqual({ message_id: testMsgIds[5] });
+    expect(result).toEqual({ id: testMsgIds[5] });
 
     const thread = await Message.getMsgsByThread(testThreadsIds[2], "test1");
-    expect(thread).toEqual([
+    expect(thread.messages).toEqual([
       {
         id: testMsgIds[6],
         messageFrom: "test1",
         message: "test message7",
         createdOn: expect.any(Date),
+        threadId: testThreadsIds[2]
       },
     ]);
   });

@@ -60,7 +60,6 @@ class Game {
                 game_city AS "city", 
                 game_state AS "state", 
                 created_on AS "createdOn", 
-                created_by AS "createdBy", 
                 is_active AS "isActive",
                 game_date::date - current_date::date AS "daysDiff"
         FROM games
@@ -116,15 +115,22 @@ class Game {
    *
    */
   static async findAll(searchFilters = {}) {
-    let findAllQuery = `SELECT g.id,
+    let findAllQuery = `
+        WITH hosts AS (
+          SELECT jsonb_build_object('username', g.created_by, 'firstName', u.first_name, 'lastName', u.last_name) AS createdBy, g.id
+          FROM games AS g LEFT JOIN users AS u ON g.created_by = u.username
+        )
+                              SELECT g.id,
                                g.title,
+                               description, 
                                g.game_date AS "date", 
                                g.game_time AS "time", 
                                g.game_address AS "address", 
                                g.game_city AS "city", 
                                g.game_state AS "state", 
-                               g.created_by AS "createdBy", 
-                               (SELECT (COUNT(u.username) FILTER (WHERE u.is_active = true))::integer AS "players" 
+                               g.created_on AS "createdOn",
+                               h.createdBy as "createdBy",
+                               (SELECT coalesce((array_agg(u.username) FILTER (WHERE u.is_active = true)), '{}') AS "players" 
                                   FROM users AS u 
                                   LEFT JOIN users_games AS ug 
                                   ON u.username = ug.username 
@@ -135,7 +141,8 @@ class Game {
                       LEFT JOIN users_games AS ug
                       ON g.id = ug.game_id
                       LEFT JOIN users AS u 
-                      on ug.username = u.username`;
+                      on ug.username = u.username
+                      LEFT JOIN hosts AS h ON h.id = g.id`;
 
     const [query, queryValues] = sqlForGameFilters(findAllQuery, searchFilters);
     const gamesRes = await db.query(query, queryValues);
@@ -285,12 +292,24 @@ class Game {
       `UPDATE games
          SET is_active = false
          WHERE id = $1
-         RETURNING id`,
+         RETURNING id, 
+                   title, 
+                   description, 
+                   game_date AS "date", 
+                   game_time AS "time", 
+                   game_address AS "address", 
+                   game_city AS "city", 
+                   game_state AS "state", 
+                   created_on AS"createdOn", 
+                   is_active AS "isActive", 
+                   (game_date::date - current_date::date) AS "daysDiff"`,
       [gameId]
     );
     const game = result.rows[0];
 
     if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
+
+    return game
   }
 
   /**
@@ -326,7 +345,7 @@ class Game {
                    game_city AS "city", 
                    game_state AS "state", 
                    created_on AS"createdOn", 
-                   created_by AS "createdBy", 
+                   is_active AS "isActive", 
                    (game_date::date - current_date::date) AS "daysDiff"`,
       [gameId]
     );
@@ -380,6 +399,7 @@ class Game {
     if (!game) throw new NotFoundError(NotFoundMsgGame(gameId));
 
     const gameCommentQuery = `SELECT gc.id, 
+                                     gc.game_id AS "gameId",
                                      gc.username, 
                                      gc.comment, 
                                      gc.created_on AS "createdOn"
@@ -429,7 +449,7 @@ class Game {
         "isUserActive accepts undefined, null, or boolean as valid data type"
       );
 
-    let query = `SELECT json_object_agg(ug.username, u.profile_img) as "players"
+    let query = `SELECT ug.username, u.profile_img AS "profileImg"
                         FROM users_games AS ug
                         LEFT JOIN users AS u
                         ON ug.username = u.username
@@ -438,14 +458,14 @@ class Game {
     if (isUserActive === true) query += " AND u.is_active = true";
     if (isUserActive === false) query += " AND u.is_active = false";
 
-    query += " GROUP BY ug.game_id";
+    // query += " GROUP BY ug.game_id";
 
     const playersRes = await db.query(query, [gameId]);
 
     const players = playersRes.rows;
-    if (!players.length) return players;
 
-    return players[0].players;
+
+    return !players ? [] : players;
   }
 
   /**Adds user with username to game with gameId
@@ -475,23 +495,23 @@ class Game {
     if (!result.user) throw new InactiveError(InactiveMsgUser(username));
 
     await db.query(
-      `INSERT INTO users_games(game_id, username)
-           VALUES ($1, $2)`,
+      `
+        INSERT INTO users_games (game_id, username)
+        VALUES ($1, $2)
+        `,
       [gameId, username]
     );
+
     const playersRes = await db.query(
-      `SELECT json_object_agg(ug.username, u.profile_img) AS "players"
+      `SELECT ug.username, u.profile_img AS "profileImg"
           FROM users_games AS ug
           LEFT JOIN users AS u
           ON ug.username = u.username
-          WHERE ug.game_id = $1 AND u.is_active = true
-          GROUP by game_id`,
+          WHERE ug.game_id = $1 AND u.is_active = true`,
       [gameId]
     );
-    const players = playersRes.rows;
-    if (!players.length) return players;
+    return playersRes.rows;
 
-    return players[0].players;
   }
 
   /**Removes user with username from game with gameId
@@ -523,18 +543,15 @@ class Game {
       [gameId, username]
     );
     const playersRes = await db.query(
-      `SELECT json_object_agg(ug.username, u.profile_img) AS "players"
-          FROM users_games AS ug
-          LEFT JOIN users AS u
-          ON ug.username = u.username
-          WHERE ug.game_id = $1 AND u.is_active = true
-          GROUP by game_id`,
+      `SELECT ug.username, u.profile_img AS "profileImg"
+      FROM users_games AS ug
+      LEFT JOIN users AS u
+      ON ug.username = u.username
+      WHERE ug.game_id = $1 AND u.is_active = true`,
       [gameId]
     );
-    const players = playersRes.rows;
-    if (!players.length) return players;
+    return playersRes.rows;
 
-    return players[0].players;
   }
 
   /** Given commentData, creates a comment from username for game with gameId
@@ -560,7 +577,7 @@ class Game {
       `
     INSERT INTO games_comments(game_id, username, comment, is_active)
     VALUES ($1, $2, $3, true)
-    RETURNING id, username, comment, created_on AS "createdOn"
+    RETURNING id, game_id AS "gameId", username, comment, created_on AS "createdOn"
 `,
       [gameId, username, comment]
     );

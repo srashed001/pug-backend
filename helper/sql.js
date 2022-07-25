@@ -114,7 +114,7 @@ function sqlForGameFilters(query, searchFilters = {}) {
   }
 
   query +=
-    " GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id";
+    " GROUP BY g.id, h.createdBy ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id";
 
   return [query, queryValues];
 }

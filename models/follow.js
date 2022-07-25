@@ -16,7 +16,7 @@ class Follow {
   /** Given username, returns data on active users username is following
    *
    * @param {string} username
-   * @returns {array} username follows these users [{follows, profileImg, city, state}, ...]
+   * @returns {array} username follows these users [{username, firstName, lastName, profileImg, city, state}, ...]
    *
    * throws NotFoundError if username does not exist
    */
@@ -29,7 +29,7 @@ class Follow {
     if (!userCheck) throw new NotFoundError(NotFoundMsgUser(username));
 
     const followsRes = await db.query(
-      `SELECT f.followed_user AS "username", u.profile_img AS "profileImg", current_city AS "city", current_state AS "state"
+      `SELECT f.followed_user AS "username", u.profile_img AS "profileImg", u.current_city AS "city", u.current_state AS "state", u.first_name AS "firstName", u.last_name AS "lastName"
                                            FROM is_following AS f
                                            LEFT JOIN users AS u
                                            ON f.followed_user = u.username 
@@ -43,7 +43,7 @@ class Follow {
   /** Given username, returns data on username followers
    *
    * @param {string} username
-   * @returns {array} users following username [{followers, profileImg, city, state}, ...]
+   * @returns {array} users following username [{username, firstName, lastName, profileImg, city, state}, ...]
    *
    * throws NotFoundError is username does not exist
    */
@@ -56,7 +56,7 @@ class Follow {
     if (!userCheck) throw new NotFoundError(NotFoundMsgUser(username));
 
     const followersRes = await db.query(
-      `SELECT f.following_user AS "username", u.profile_img AS "profileImg", current_city AS "city", current_state AS "state"
+      `SELECT f.following_user AS "username", u.profile_img AS "profileImg", u.current_city AS "city", u.current_state AS "state", u.first_name AS "firstName", u.last_name AS "lastName"
                                            FROM is_following AS f
                                            LEFT JOIN users AS u
                                            ON f.following_user = u.username 
@@ -64,7 +64,7 @@ class Follow {
                                            ORDER BY f.following_user`,
       [username]
     );
-    return followersRes.rows;
+    return !followersRes.rows ? [] : followersRes.rows;
   }
   /** Given follower/followed (username), toggles relationship status, returns action details
    *  if(follower follows followed) => follower unfollows followed
@@ -72,7 +72,7 @@ class Follow {
    *
    * @param {string} follower
    * @param {string} followed
-   * @returns {object} action details {action, followed, following, followingProfileImg}
+   * @returns {object} action details {action, follower, followed, followingProfileImg}
    *  - where action "followed" || "unfollowed"
    *
    * Throws NotFoundError if follower/followed (username) does not exist
@@ -97,13 +97,13 @@ class Follow {
     const addQuery = `INSERT INTO is_following (followed_user, following_user)
                              VALUES ($1, $2)
                              RETURNING followed_user AS "followed", 
-                                       following_user AS "following", 
+                                       following_user AS "follower", 
                                        (SELECT profile_img FROM users WHERE username = $2) AS "followingProfileImg"`;
 
     const removeQuery = `DELETE FROM is_following
                              WHERE followed_user = $1 AND following_user = $2
                              RETURNING followed_user AS "followed", 
-                                       following_user AS "following", 
+                                       following_user AS "follower", 
                                        (SELECT profile_img FROM users WHERE username = $2) AS "followingProfileImg"
                              `;
 

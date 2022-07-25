@@ -89,11 +89,11 @@
       },
       "phoneNumber": {
           "type": "string",
-          "minLength": 10,
-          "maxLength": 10
+          "minLength": 12,
+          "maxLength": 12
       },
       "profileImg": {
-          "type": "string"
+          "type": ["string"]
       },
       "isPrivate": {
           "type": "boolean"

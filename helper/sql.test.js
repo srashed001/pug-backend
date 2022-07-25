@@ -42,7 +42,7 @@ describe(`sqlForGameFilter`, function () {
     const result = sqlForGameFilters(query, searchFilters);
     const [q, v] = result;
     expect(q).toEqual(
-      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
+      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 GROUP BY g.id, h.createdBy ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
     );
     expect(v).toEqual([true]);
   });
@@ -55,7 +55,7 @@ describe(`sqlForGameFilter`, function () {
     const result = sqlForGameFilters(query, searchFilters);
     const [q, v] = result;
     expect(q).toEqual(
-      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 AND (g.game_date::date - current_date::date) <= -1 GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
+      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 AND (g.game_date::date - current_date::date) <= -1 GROUP BY g.id, h.createdBy ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
     );
     expect(v).toEqual([true]);
   });
@@ -80,7 +80,7 @@ describe(`sqlForGameFilter`, function () {
     const result = sqlForGameFilters(query, searchFilters);
     const [q, v] = result;
     expect(q).toEqual(
-      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 GROUP BY g.id ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
+      `SELECT g.id, g.title, FROM games AS g LEFT JOIN users_games AS ug ON g.id = ug.game_id LEFT JOIN users AS u  on ug.username = u.username WHERE g.is_active = $1 GROUP BY g.id, h.createdBy ORDER BY (g.game_date::date - current_date::date) DESC, g.game_time DESC, g.id`
     );
     expect(v).toEqual([true]);
   });

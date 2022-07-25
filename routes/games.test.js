@@ -87,52 +87,76 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[1],
           title: "g2",
+          description: "game2",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:02",
           address: "ga2",
           city: "Fresno",
           state: "CA",
-          createdBy: "test2",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f2",
+            lastName: "l2",
+            username: "test2",
+          },
+          players: ["test1", "test4"],
           daysDiff: 3,
           isActive: true,
         },
         {
           id: testGameIds[3],
           title: "g4",
+          description: "game4",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:04",
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: 2,
           isActive: false,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
         {
           id: testGameIds[2],
           title: "g3",
+          description: "game3",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:03",
           address: "ga3",
           city: "Fresno",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: -2,
           isActive: true,
         },
@@ -147,39 +171,57 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[1],
           title: "g2",
+          description: "game2",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:02",
           address: "ga2",
           city: "Fresno",
           state: "CA",
-          createdBy: "test2",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f2",
+            lastName: "l2",
+            username: "test2",
+          },
+          players: ["test1", "test4"],
           daysDiff: 3,
           isActive: true,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
         {
           id: testGameIds[2],
           title: "g3",
+          description: "game3",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:03",
           address: "ga3",
           city: "Fresno",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: -2,
           isActive: true,
         },
@@ -194,13 +236,19 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[3],
           title: "g4",
+          description: "game4",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:04",
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: 2,
           isActive: false,
         },
@@ -222,39 +270,57 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[1],
           title: "g2",
+          description: "game2",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:02",
           address: "ga2",
           city: "Fresno",
           state: "CA",
-          createdBy: "test2",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f2",
+            lastName: "l2",
+            username: "test2",
+          },
+          players: ["test1", "test4"],
           daysDiff: 3,
           isActive: true,
         },
         {
           id: testGameIds[3],
           title: "g4",
+          description: "game4",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:04",
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: 2,
           isActive: false,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
@@ -271,13 +337,19 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[2],
           title: "g3",
+          description: "game3",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:03",
           address: "ga3",
           city: "Fresno",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: -2,
           isActive: true,
         },
@@ -294,26 +366,38 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[1],
           title: "g2",
+          description: "game2",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:02",
           address: "ga2",
           city: "Fresno",
           state: "CA",
-          createdBy: "test2",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f2",
+            lastName: "l2",
+            username: "test2",
+          },
+          players: ["test1", "test4"],
           daysDiff: 3,
           isActive: true,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
@@ -335,13 +419,19 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
@@ -356,26 +446,38 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[1],
           title: "g2",
+          description: "game2",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:02",
           address: "ga2",
           city: "Fresno",
           state: "CA",
-          createdBy: "test2",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f2",
+            lastName: "l2",
+            username: "test2",
+          },
+          players: ["test1", "test4"],
           daysDiff: 3,
           isActive: true,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
@@ -405,10 +507,12 @@ describe(`GET /games`, function () {
           address: "ga6",
           city: "Irvine",
           state: "CO",
-          createdBy: "test5",
-          players: 0,
+          createdBy: { username: "test5", firstName: "f5", lastName: "l5" },
+          players: [],
           daysDiff: 3,
           isActive: true,
+          createdOn: expect.any(String),
+          description: "game6",
         },
         {
           id: gameIds[0],
@@ -418,10 +522,12 @@ describe(`GET /games`, function () {
           address: "ga5",
           city: "Irvine",
           state: "NV",
-          createdBy: "test5",
-          players: 0,
+          createdBy: { username: "test5", firstName: "f5", lastName: "l5" },
+          players: [],
           daysDiff: 2,
           isActive: true,
+          createdOn: expect.any(String),
+          description: "game5",
         },
         {
           id: testGameIds[3],
@@ -431,10 +537,12 @@ describe(`GET /games`, function () {
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdBy: { username: "test3", firstName: "f3", lastName: "l3" },
+          players: [],
           daysDiff: 2,
           isActive: false,
+          createdOn: expect.any(String),
+          description: "game4",
         },
       ],
     });
@@ -464,10 +572,12 @@ describe(`GET /games`, function () {
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdBy: { username: "test3", firstName: "f3", lastName: "l3" },
+          players: [],
           daysDiff: 2,
           isActive: false,
+          createdOn: expect.any(String),
+          description: "game4",
         },
       ],
     });
@@ -501,26 +611,38 @@ describe(`GET /games`, function () {
         {
           id: testGameIds[3],
           title: "g4",
+          description: "game4",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:04",
           address: "ga4",
           city: "Irvine",
           state: "CA",
-          createdBy: "test3",
-          players: 0,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f3",
+            lastName: "l3",
+            username: "test3",
+          },
+          players: [],
           daysDiff: 2,
           isActive: false,
         },
         {
           id: testGameIds[0],
           title: "g1",
+          description: "game1",
           date: expect.any(String),
-          time: expect.any(String),
+          time: "12:00:00",
           address: "ga1",
           city: "Fresno",
           state: "CA",
-          createdBy: "test1",
-          players: 2,
+          createdOn: expect.any(String),
+          createdBy: {
+            firstName: "f1",
+            lastName: "l1",
+            username: "test1",
+          },
+          players: ["test2", "test4"],
           daysDiff: 2,
           isActive: true,
         },
@@ -545,23 +667,26 @@ describe(`GET /games/:gameId`, function () {
         title: "g1",
         description: "game1",
         date: expect.any(String),
-        time: expect.any(String),
+        time: "12:00:00",
         address: "ga1",
         city: "Fresno",
         state: "CA",
         createdOn: expect.any(String),
-        createdBy: "test1",
         daysDiff: 2,
       },
       comments: [
         {
           id: expect.any(Number),
+          gameId: testGameIds[0],
           username: "test1",
           comment: "test comment",
           createdOn: expect.any(String),
         },
       ],
-      players: { test4: "http://f4.img", test2: "http://f2.img" },
+      players: [
+        { username: "test4", profileImg: "http://f4.img" },
+        { username: "test2", profileImg: "http://f2.img" },
+      ],
     });
   });
 
@@ -761,6 +886,7 @@ describe(`POST /games/:gameId/comment/:username`, function () {
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
       comment: {
+        gameId: testGameIds[0],
         id: expect.any(Number),
         username: "test1",
         comment: "new test comment",
@@ -782,6 +908,7 @@ describe(`POST /games/:gameId/comment/:username`, function () {
     expect(resp.body).toEqual({
       comment: {
         id: expect.any(Number),
+        gameId: testGameIds[0],
         username: "test1",
         comment: "new test comment",
         createdOn: expect.any(String),
@@ -857,6 +984,7 @@ describe(`DELETE /games/:gameId/comment/:commentId`, function () {
     expect(resp.body).toEqual({
       action: "deactivated",
       comment: {
+        id: expect.any(Number),
         id: newComment.id,
         username: "test4",
         comment: "new test comment",
@@ -871,6 +999,7 @@ describe(`DELETE /games/:gameId/comment/:commentId`, function () {
     );
     expect(inactiveGame1Comments).toContainEqual({
       id: newComment.id,
+      gameId: testGameIds[0],
       username: "test4",
       comment: "new test comment",
       createdOn: expect.any(Date),
@@ -911,6 +1040,7 @@ describe(`DELETE /games/:gameId/comment/:commentId`, function () {
     );
     expect(inactiveGame1Comments).toContainEqual({
       id: newComment.id,
+      gameId: testGameIds[0],
       username: "test4",
       comment: "new test comment",
       createdOn: expect.any(Date),
@@ -951,6 +1081,7 @@ describe(`DELETE /games/:gameId/comment/:commentId`, function () {
     );
     expect(inactiveGame1Comments).toContainEqual({
       id: newComment.id,
+      gameId: testGameIds[0],
       username: "test4",
       comment: "new test comment",
       createdOn: expect.any(Date),
@@ -997,7 +1128,10 @@ describe(`DELETE /games/:gameId/comment/:commentId`, function () {
 describe(`POST /games/:gameId/:username`, function () {
   test(`adds user to game return updated game list`, async function () {
     let players = await Game.getGamePlayers(testGameIds[0], true);
-    expect(players).toEqual({ test4: "http://f4.img", test2: "http://f2.img" });
+    expect(players).toEqual([
+      { profileImg: "http://f4.img", username: "test4" },
+      { profileImg: "http://f2.img", username: "test2" },
+    ]);
 
     const resp = await request(app)
       .post(`/games/${testGameIds[0]}/join/test5`)
@@ -1005,11 +1139,11 @@ describe(`POST /games/:gameId/:username`, function () {
 
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
-      players: {
-        test4: "http://f4.img",
-        test2: "http://f2.img",
-        test5: "http://f5.img",
-      },
+      players: [
+        { username: "test4", profileImg: "http://f4.img" },
+        { username: "test2", profileImg: "http://f2.img" },
+        { username: "test5", profileImg: "http://f5.img" },
+      ],
     });
 
     players = await Game.getGamePlayers(testGameIds[0], true);
@@ -1051,16 +1185,17 @@ describe(`POST /games/:gameId/:username`, function () {
 describe(`DELETE /games/:gameId/:username`, function () {
   test(`removes user from game with correct user token`, async function () {
     let players = await Game.getGamePlayers(testGameIds[0], true);
-    expect(players).toEqual({ test4: "http://f4.img", test2: "http://f2.img" });
+    expect(players).toEqual([
+      { profileImg: "http://f4.img", username: "test4" },
+      { profileImg: "http://f2.img", username: "test2" },
+    ]);
 
     const resp = await request(app)
       .delete(`/games/${testGameIds[0]}/join/test2`)
       .set("authorization", `Bearer ${u2Token}`);
 
     expect(resp.body).toEqual({
-      players: {
-        test4: "http://f4.img",
-      },
+      players: [{ profileImg: "http://f4.img", username: "test4" }],
     });
 
     players = await Game.getGamePlayers(testGameIds[0], true);
@@ -1069,16 +1204,17 @@ describe(`DELETE /games/:gameId/:username`, function () {
 
   test(`removes user from game with admin token`, async function () {
     let players = await Game.getGamePlayers(testGameIds[0], true);
-    expect(players).toEqual({ test4: "http://f4.img", test2: "http://f2.img" });
+    expect(players).toEqual([
+      { profileImg: "http://f4.img", username: "test4" },
+      { profileImg: "http://f2.img", username: "test2" },
+    ]);
 
     const resp = await request(app)
       .delete(`/games/${testGameIds[0]}/join/test2`)
       .set("authorization", `Bearer ${adminToken}`);
 
     expect(resp.body).toEqual({
-      players: {
-        test4: "http://f4.img",
-      },
+      players: [{ profileImg: "http://f4.img", username: "test4" }],
     });
 
     players = await Game.getGamePlayers(testGameIds[0], true);
@@ -1139,7 +1275,22 @@ describe(`PATCH /games/:gameId/deactivate`, function () {
     const resp = await request(app)
       .patch(`/games/${testGameIds[0]}/deactivate`)
       .set("authorization", `Bearer ${u1Token}`);
-    expect(resp.body).toEqual({ action: "deactivated", game: testGameIds[0] });
+    expect(resp.body).toEqual({
+      action: "deactivated",
+      game: {
+        id: testGameIds[0],
+        title: "g1",
+        description: "game1",
+        date: expect.any(String),
+        time: "12:00:00",
+        address: "ga1",
+        city: "Fresno",
+        state: "CA",
+        createdOn: expect.any(String),
+        isActive: false,
+        daysDiff: 2,
+      },
+    });
 
     let inactiveGames = await Game.findAll({ isActive: false });
     let inactiveGameIds = inactiveGames.map((el) => el.id);
@@ -1155,7 +1306,22 @@ describe(`PATCH /games/:gameId/deactivate`, function () {
     const resp = await request(app)
       .patch(`/games/${testGameIds[0]}/deactivate`)
       .set("authorization", `Bearer ${adminToken}`);
-    expect(resp.body).toEqual({ action: "deactivated", game: testGameIds[0] });
+    expect(resp.body).toEqual({
+      action: "deactivated",
+      game: {
+        id: testGameIds[0],
+        title: "g1",
+        description: "game1",
+        date: expect.any(String),
+        time: "12:00:00",
+        address: "ga1",
+        city: "Fresno",
+        state: "CA",
+        createdOn: expect.any(String),
+        isActive: false,
+        daysDiff: 2,
+      },
+    });
 
     let inactiveGames = await Game.findAll({ isActive: false });
     let inactiveGameIds = inactiveGames.map((el) => el.id);
@@ -1188,7 +1354,22 @@ describe(`PATCH /games/:gameId/reactivate`, function () {
     const resp = await request(app)
       .patch(`/games/${testGameIds[3]}/reactivate`)
       .set("authorization", `Bearer ${u3Token}`);
-    expect(resp.body).toEqual({ action: "reactivated", game: testGameIds[3] });
+    expect(resp.body).toEqual({
+      action: "reactivated",
+      game: {
+        id: testGameIds[3],
+        title: "g4",
+        description: "game4",
+        date: expect.any(String),
+        time: "12:00:04",
+        address: "ga4",
+        city: "Irvine",
+        state: "CA",
+        createdOn: expect.any(String),
+        isActive: true,
+        daysDiff: 2,
+      },
+    });
 
     let activeGames = await Game.findAll({ isActive: true });
     let activeGameIds = activeGames.map((el) => el.id);
@@ -1199,7 +1380,22 @@ describe(`PATCH /games/:gameId/reactivate`, function () {
     const resp = await request(app)
       .patch(`/games/${testGameIds[3]}/reactivate`)
       .set("authorization", `Bearer ${adminToken}`);
-    expect(resp.body).toEqual({ action: "reactivated", game: testGameIds[3] });
+    expect(resp.body).toEqual({
+      action: "reactivated",
+      game: {
+        id: testGameIds[3],
+        title: "g4",
+        description: "game4",
+        date: expect.any(String),
+        time: "12:00:04",
+        address: "ga4",
+        city: "Irvine",
+        state: "CA",
+        createdOn: expect.any(String),
+        isActive: true,
+        daysDiff: 2,
+      },
+    });
 
     let activeGames = await Game.findAll({ isActive: true });
     let activeGameIds = activeGames.map((el) => el.id);

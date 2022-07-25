@@ -30,8 +30,7 @@
       "format": "email"
     },
     "birthDate": {
-      "type": "string",
-      "format": "date"
+      "type": "string"
     },
     "city": {
       "type": "string",
@@ -94,8 +93,8 @@
     },
     "phoneNumber": {
         "type": "string",
-        "minLength": 10,
-        "maxLength": 10
+        "minLength": 12,
+        "maxLength": 12
     },
     "profileImg": {
         "type": "string"

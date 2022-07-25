@@ -6,6 +6,7 @@ const {
   InactiveError,
   UnauthError,
 } = require("../expressError");
+const Game = require("./game");
 const Invite = require("./invite");
 
 const {
@@ -432,6 +433,7 @@ describe("getInvitesSent(username)", function () {
         id: expect.any(Number),
         gameId: testGameIds[0],
         toUser: "test4",
+        fromUser: "test1",
         status: "pending",
         createdOn: expect.any(Date),
       },
@@ -439,6 +441,7 @@ describe("getInvitesSent(username)", function () {
         id: expect.any(Number),
         gameId: testGameIds[0],
         toUser: "test2",
+        fromUser: "test1",
         status: "pending",
         createdOn: expect.any(Date),
       },
@@ -523,10 +526,11 @@ describe("getInvitesReceived(username)", function () {
     expect(invitesReceived).toEqual([
       {
         id: expect.any(Number),
-        game_id: testGameIds[0],
+        gameId: testGameIds[0],
         fromUser: "test1",
         status: "pending",
         createdOn: expect.any(Date),
+        toUser: 'test4'
       },
     ]);
   });
@@ -611,6 +615,25 @@ describe(`update(inviteId, username, status)`, function () {
 
     const updatedInvite = await Invite.update(newInvite.id, 'test2', "cancelled");
     expect(updatedInvite.status).toEqual("cancelled");
+  });
+
+  test(`updates 'pending' invite to 'accepted' with correct user
+        and adds game`, async function () {
+    const data = {
+      gameId: testGameIds[2],
+      fromUser: "test2",
+      toUser: "test4",
+    };
+    const newInvite = await Invite.create(data);
+
+    const invite = await Invite.get(newInvite.id);
+    expect(invite.status).toEqual("pending");
+
+    const updatedInvite = await Invite.update(newInvite.id, 'test4', "accepted");
+    expect(updatedInvite.status).toEqual("accepted");
+
+    const game3players = await Game.getGamePlayers(testGameIds[2])
+    expect(game3players.map(player => player.username)).toContainEqual('test4')
   });
 
   test(`throws unauth when incorrect user updates 'pending' invite to 'cancelled`, async function () {

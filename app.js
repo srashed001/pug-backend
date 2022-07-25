@@ -9,6 +9,8 @@ const { authenticateJWT } = require("./middleware/auth")
 const authRoutes = require('./routes/auth')
 const usersRoutes = require('./routes/users')
 const gamesRoutes = require(`./routes/games`)
+const courtRoutes = require(`./routes/courts`)
+const activityRoutes = require(`./routes/activities`)
 
 // routers and middleware
 
@@ -24,6 +26,8 @@ app.use(authenticateJWT)
 app.use("/auth", authRoutes)
 app.use("/users", usersRoutes)
 app.use("/games", gamesRoutes)
+app.use("/courts", courtRoutes)
+app.use("/activity", activityRoutes)
 
 // handle 404 errors
 app.use(function (req, res, next) {

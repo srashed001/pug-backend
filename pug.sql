@@ -6,6 +6,7 @@ CREATE DATABASE pugdb;
 \connect pugdb
 
 \i pug-schema.sql
+\i pugData.sql
 
 
 \echo 'Delete and recreate pugdb_test db?'

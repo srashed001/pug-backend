@@ -237,8 +237,8 @@ router.patch(
   ensureHostOrAdmin,
   async function (req, res, next) {
     try {
-      await Game.deactivate(req.params.gameId);
-      return res.json({ action: "deactivated", game: +req.params.gameId });
+      const game = await Game.deactivate(req.params.gameId);
+      return res.json({ action: "deactivated", game });
     } catch (err) {
       return next(err);
     }
@@ -257,8 +257,8 @@ router.patch(
   ensureHostOrAdmin,
   async function (req, res, next) {
     try {
-      await Game.reactivate(req.params.gameId);
-      return res.json({ action: "reactivated", game: +req.params.gameId });
+      const game = await Game.reactivate(req.params.gameId);
+      return res.json({ action: "reactivated", game });
     } catch (err) {
       return next(err);
     }

@@ -21,6 +21,9 @@
       "city": {
         "type": "string"
       },
+      "createdBy": {
+        "type": "string"
+      },
       "state": {
         "type": "string",
         "enum": [

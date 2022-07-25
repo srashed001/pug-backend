@@ -8,6 +8,7 @@ const userUpdateAdminSchema = require("../schemas/userUpdateAdmin.json");
 const newMessageSchema = require("../schemas/newMessage.json");
 const newInviteSchema = require("../schemas/newInvite.json");
 const threadResponseSchema = require("../schemas/threadResponse.json");
+const newThreadSchema = require("../schemas/newThread.json");
 const express = require("express");
 const { BadRequestError } = require("../expressError");
 const User = require("../models/user");
@@ -57,6 +58,16 @@ router.get("/", async function (req, res, next) {
   }
 });
 
+router.get("/:username/check", async function (req, res, next) {
+
+  try {
+    const status = await User.checkUsername(req.params.username);
+    return res.json({ username: req.params.username, status });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 /** GET /[username] => {user}
  *
  * Returns {user, games}
@@ -94,8 +105,10 @@ router.get("/:username", async function (req, res, next) {
       gameStatus: "pending",
       isActive: true,
     });
+    const follows = await Follow.getFollows(req.params.username)
+    const followers = await Follow.getFollowers(req.params.username)
     return res.json({
-      user,
+      ...user,
       games: {
         hosted: {
           pending: hostedPending,
@@ -106,6 +119,8 @@ router.get("/:username", async function (req, res, next) {
           resolved: joinedResolved,
         },
       },
+      followers, 
+      follows, 
     });
   } catch (err) {
     return next(err);
@@ -313,11 +328,35 @@ router.get(
   ensureCorrectUserOrAdmin,
   async function (req, res, next) {
     try {
-      const messages = await Message.getMsgsByThread(
+      const thread = await Message.getMsgsByThread(
         req.params.threadId,
         req.params.username
       );
-      return res.json({ messages });
+      return res.json({ thread });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+/** POST /[username]/[threadId]
+ * 
+ * Returns {id: threadId}
+ * 
+ * Authorization required: admin or same-user-as-:usernamejest 
+ */
+router.post(
+  `/:username/threadId`,
+  ensureCorrectUserOrAdmin,
+  async function (req, res, next) {
+    try {
+      const validator = jsonschema.validate(req.body, newThreadSchema)
+      if(!validator.valid){
+        const errs = validator.errors.map(e => e.stack)
+        throw new BadRequestError(errs)
+      }
+      const id = await Message.createThread(req.body.party)
+      return res.json(id);
     } catch (err) {
       return next(err);
     }
@@ -434,7 +473,16 @@ router.delete(
     }
   }
 );
-
+/***
+ * 
+ * 
+ * change (id, gameId, fromUser, toUser, status, createdOn )
+ * 
+ * 
+ * 
+ * 
+ * 
+ */
 /** GET /[username]/invites
  *
  * Returns {invites: received: [Array], sent: [Array]}
@@ -492,7 +540,7 @@ router.post(
         fromUser: req.params.username,
         toUser: req.body.toUsers[0],
       });
-      return res.json({ invites: [invites] });
+      return res.json({ invites });
     } catch (err) {
       return next(err);
     }

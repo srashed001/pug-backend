@@ -50,10 +50,9 @@ describe("get(username)", function () {
       createdOn: expect.any(Date),
       isPrivate: false,
       email: "test1@test.com",
-      isAdmin: false, 
+      isAdmin: false,
       phoneNumber: null,
-      following: ["test2"],
-      followed: ["test2", "test4"],
+      isActive: true,
     });
   });
 
@@ -131,7 +130,7 @@ describe("findAll()", function () {
   });
 
   test("return a list of all active users", async function () {
-    let users = await User.findAll({isActive: true});
+    let users = await User.findAll({ isActive: true });
     expect(users).toEqual([
       {
         username: "test1",
@@ -173,7 +172,7 @@ describe("findAll()", function () {
   });
 
   test("return a list of all inactive users", async function () {
-    let users = await User.findAll({isActive: false});
+    let users = await User.findAll({ isActive: false });
     expect(users).toEqual([
       {
         username: "test3",
@@ -410,7 +409,7 @@ describe("findAll()", function () {
     await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
                     VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
                             ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
-    
+
     // test3 will not appear in list
 
     let users = await User.findAll({ username: "test4", isActive: true });
@@ -476,7 +475,7 @@ describe("findAll()", function () {
     await db.query(`INSERT INTO users (username, first_name, last_name, birth_date, current_city, current_state, profile_img, password, email, is_active )
                     VALUES  ('test47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test47@test.com', true),
                             ('tes47', 'f47', 'l47', '2000-01-01', 'cc47', 'cs47', 'http://f47.img', 'PASS', 'test7@test.com', true)`);
-    
+
     // test3 will not appear in list
 
     let users = await User.findAll({ username: "test4", isActive: false });
@@ -500,7 +499,6 @@ describe("findAll()", function () {
 
     let users = await User.findAll({ city: "cc47" });
     expect(users).toEqual([
-   
       {
         username: "test47",
         firstName: "f47",
@@ -518,7 +516,7 @@ describe("findAll()", function () {
         state: "cs47",
         profileImg: "http://f47.img",
         isPrivate: false,
-      },   
+      },
       {
         username: "test4",
         firstName: "f4",
@@ -538,7 +536,6 @@ describe("findAll()", function () {
 
     let users = await User.findAll({ state: "CA" });
     expect(users).toEqual([
-   
       {
         username: "test47",
         firstName: "f47",
@@ -556,7 +553,7 @@ describe("findAll()", function () {
         state: "CA",
         profileImg: "http://f47.img",
         isPrivate: false,
-      },   
+      },
     ]);
   });
 });
@@ -568,7 +565,7 @@ describe("authenticate(username,password)", function () {
     let user = await User.authenticate("test1", "password1");
     expect(user).toEqual({
       username: "test1",
-      isAdmin: false
+      isAdmin: false,
     });
   });
 
@@ -618,8 +615,8 @@ describe("register(data)", function () {
     const user = await User.register(data);
 
     expect(user).toEqual({
-      username: 'test6',
-      isAdmin: false
+      username: "test6",
+      isAdmin: false,
     });
 
     const users = await User.findAll();
@@ -668,8 +665,6 @@ describe("update(username, data)", function () {
       email: "test3@test.com",
       isPrivate: false,
       isAdmin: false,
-      following: [],
-      followed: [],
       createdOn: expect.any(Date),
     });
   });
@@ -686,6 +681,7 @@ describe("update(username, data)", function () {
   test("updates partial data", async function () {
     const test = await User.get("test2");
     delete test.createdOn;
+    delete test.isActive;
     const data = {
       firstName: "banana",
       lastName: "man",
@@ -734,12 +730,12 @@ describe("update(username, data)", function () {
 
 describe("reactivate(user)", function () {
   test("reactivates existing user", async function () {
-    let users = await User.findAll({isActive: true});
+    let users = await User.findAll({ isActive: true });
     let usernames = users.map((u) => u.username);
     expect(usernames).not.toContain("test3");
 
     await User.reactivate("test3");
-    users = await User.findAll({isActive: true});
+    users = await User.findAll({ isActive: true });
     usernames = users.map((u) => u.username);
     expect(usernames).toContain("test3");
   });
@@ -758,12 +754,12 @@ describe("reactivate(user)", function () {
 
 describe("deactivate(user)", function () {
   test("deactivates existing user", async function () {
-    let users = await User.findAll({isActive: true});
+    let users = await User.findAll({ isActive: true });
     let usernames = users.map((u) => u.username);
     expect(usernames).toContain("test1");
 
     await User.deactivate("test1");
-    users = await User.findAll({isActive: true});
+    users = await User.findAll({ isActive: true });
     usernames = users.map((u) => u.username);
     expect(usernames).not.toContain("test1");
   });

@@ -61,13 +61,17 @@ class Message {
     const selectQuery = `SELECT ut.id
                              FROM thread_count as tc
                              LEFT JOIN users_threads as ut
-                             ON tc.id = ut.id`;
+                             ON tc.id = ut.id
+                             LEFT JOIN users as u 
+                             ON ut.username = u.username`;
     const countQuery = `(SELECT id FROM thread_count WHERE player_count = ${usersCount})`;
     const whereExpressions = usersArr.map(
       (el, i) =>
-        `${selectQuery} WHERE username = $${i + 1} and ut.id IN ${countQuery}`
+        `${selectQuery} WHERE ut.username = $${
+          i + 1
+        } and ut.id IN ${countQuery}`
     );
-    const query = `${withQuery} ${whereExpressions.join(" INTERSECT ")}`;
+    const query = `${withQuery} ${whereExpressions.join(" INTERSECT ")} `;
 
     const threadRes = await db.query(query, usersArr);
     return threadRes.rows[0] ? threadRes.rows[0] : {};
@@ -90,8 +94,8 @@ class Message {
 
     const queryRes = await db.query(
       `SELECT ut.id AS "threadId", 
-              json_object_agg(ut.username, u.profile_img) AS "party",
-              json_object_agg(m.message_from, m.created_on::timestamp) AS "lastMessage"
+              json_agg(DISTINCT jsonb_build_object('username', ut.username, 'firstName', u.first_name, 'lastName', u.last_name, 'profileImg', u.profile_img)) AS "party",
+              jsonb_build_object('message', m.message, 'timestamp', m.created_on::timestamp) AS "lastMessage"
        FROM users_threads AS ut
        LEFT JOIN users AS u
        ON ut.username = u.username
@@ -106,6 +110,8 @@ class Message {
        ORDER BY m.id DESC`,
       [username]
     );
+
+
 
     return queryRes.rows;
   }
@@ -192,15 +198,15 @@ class Message {
 
   /** Given threadId and username
    *    checks if username, threadId, and threadId with username exist
-   * 
-   * @param {number} threadId 
-   * @param {string} username 
-   * 
+   *
+   * @param {number} threadId
+   * @param {string} username
+   *
    * @returns {undefined}
-   * 
-   * Throws NotFoundError if: 
-   *    - username not found 
-   *    - threadId not found 
+   *
+   * Throws NotFoundError if:
+   *    - username not found
+   *    - threadId not found
    *    - username with threadId not found
    */
   static async checkThreadId(threadId, username) {
@@ -220,18 +226,18 @@ class Message {
       );
   }
 
-  /** Given threadId, username, message 
+  /** Given threadId, username, message
    *    creates a response in a thread from username
    *
    * @param {String} threadId
    * @param {String} username
    * @param {String} message
-   * 
+   *
    * @returns {object} { id: messageId, messageFrom, message, createdOn }
    *
-   * Throws NotFoundError if: 
-   *    - username not found 
-   *    - threadId not found 
+   * Throws NotFoundError if:
+   *    - username not found
+   *    - threadId not found
    *    - username with threadId not found
    */
   static async respondThread(threadId, username, message) {
@@ -247,17 +253,17 @@ class Message {
     return result.rows[0];
   }
 
-  /** Given threadId and username, 
+  /** Given threadId and username,
    *    returns data on all active messages in thread for user
-   * 
-   * @param {number} threadId 
-   * @param {string} username 
-   * 
+   *
+   * @param {number} threadId
+   * @param {string} username
+   *
    * @returns {array} [ { id, messageFrom, message, createdOn }, ... ]
-   * 
-   * Throws NotFoundError if: 
-   *    - username not found 
-   *    - threadId not found 
+   *
+   * Throws NotFoundError if:
+   *    - username not found
+   *    - threadId not found
    *    - username with threadId not found
    */
   static async getMsgsByThread(threadId, username) {
@@ -267,28 +273,39 @@ class Message {
       `SELECT id, 
               message_from AS "messageFrom", 
               message, 
-              created_on AS "createdOn"
+              created_on AS "createdOn", 
+              party_id AS "threadId"
        FROM messages 
        WHERE party_id = $1
        AND id NOT IN (SELECT message_id FROM inactive_messages WHERE username = $2)
        ORDER BY id`,
       [threadId, username]
     );
+
+    const threadRes = await db.query(
+      `SELECT ut.id, json_agg(DISTINCT jsonb_build_object('username', ut.username, 'firstName', u.first_name, 'lastName', u.last_name, 'profileImg', u.profile_img)) AS "party"
+      FROM users_threads AS ut
+      LEFT JOIN users AS u
+      ON ut.username = u.username
+      WHERE ut.id = $1
+      GROUP BY ut.id `,
+      [threadId]
+    );
     const messages = result.rows;
-    return messages;
+    return { ...threadRes.rows[0], messages };
   }
 
   /** Given threadId and username
    *    inactivates all messages in a thread for username
-   * 
-   * @param {number} threadId 
-   * @param {string} username 
-   * 
+   *
+   * @param {number} threadId
+   * @param {string} username
+   *
    * @returns {array} [ { messageId }, ... ]
-   * 
-   * Throws NotFoundError if: 
-   *    - username not found 
-   *    - threadId not found 
+   *
+   * Throws NotFoundError if:
+   *    - username not found
+   *    - threadId not found
    *    - username with threadId not found
    */
   static async deleteThread(threadId, username) {
@@ -321,16 +338,16 @@ class Message {
   }
 
   /** Given messageId and username, deactivates message for user
-   * 
-   * @param {number} messageId 
-   * @param {string} username 
-   * 
+   *
+   * @param {number} messageId
+   * @param {string} username
+   *
    * @returns {object} {messageid}
-   * 
-   * Throws NotFoundError if: 
+   *
+   * Throws NotFoundError if:
    *    - messageId not found
-   *    - username not found 
-   *    - threadId not found 
+   *    - username not found
+   *    - threadId not found
    *    - username with threadId not found
    */
   static async deleteMsg(messageId, username) {
@@ -346,7 +363,7 @@ class Message {
     const result = await db.query(
       `INSERT INTO inactive_messages (message_id, username)
                                        VALUES ($1, $2)
-                                       RETURNING message_id `,
+                                       RETURNING message_id as "id" `,
       [messageId, username]
     );
 

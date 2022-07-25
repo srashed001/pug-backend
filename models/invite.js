@@ -221,7 +221,7 @@ class Invite {
    * data returned will not include data on inactive users or inactive games
    *
    * @param {string} username
-   * @returns {array} [{id, game_id, toUser, status, createdOn}, ...]
+   * @returns {array} [{id, game_id, toUser, fromUser, status, createdOn}, ...]
    *
    * Throws InactiveError if username is inactive
    * Throws NotFound if username is not found
@@ -240,6 +240,7 @@ class Invite {
             SELECT ui.id, 
                    game_id AS "gameId", 
                    ui.to_user AS "toUser", 
+                   ui.from_user AS "fromUser",
                    ui.status, 
                    ui.created_on AS "createdOn"
             FROM users_invites ui
@@ -291,7 +292,7 @@ class Invite {
    * data on inactive users or inactive games will not be returned
    *
    * @param {string} username
-   * @returns {array} [{id, game_id, fromUser, status, createdOn}, ...]
+   * @returns {array} [{id, game_id,toUser, fromUser, status, createdOn}, ...]
    *
    * Throws InactiveError if username is inactive
    * Throws NotFound if username is not found
@@ -308,7 +309,8 @@ class Invite {
     const invitesRes = await db.query(
       `
             SELECT ui.id, 
-                    ui.game_id, 
+                    ui.game_id AS "gameId",
+                    ui.to_user AS "toUser", 
                     ui.from_user AS "fromUser", 
                     ui.status, 
                     ui.created_on AS "createdOn"
@@ -376,7 +378,7 @@ class Invite {
    *    'accepted'
    *    'denied'
    *    'cancelled'
-   *    
+   *
    *
    * @param {number} inviteId
    * @param {string} status
@@ -403,7 +405,11 @@ class Invite {
       throw new UnauthError(`${username} cannot make this request`);
     if (invite.from_user === username && status !== "cancelled")
       throw new UnauthError(`${username} cannot make this request`);
-    if (invite.to_user === username && status === "cancelled")
+    if (
+      invite.to_user === username &&
+      status !== "denied" &&
+      status !== "accepted"
+    )
       throw new UnauthError(`${username} cannot make this request`);
 
     const updatedInviteRes = await db.query(
@@ -420,13 +426,32 @@ class Invite {
     );
 
     const updatedInvite = updatedInviteRes.rows[0];
+    const { gameId, toUser, status: inviteStatus } = updatedInvite;
+
+    if (inviteStatus == "accepted") {
+      const gameCheckRes = await db.query(
+        `
+      SELECT game_id FROM users_games WHERE game_id = $1 AND username = $2
+      `,
+        [gameId, toUser]
+      );
+      if (!gameCheckRes.rows[0]) {
+        await db.query(
+          `
+        INSERT INTO users_games(game_id, username)
+        VALUES ($1, $2) RETURNING *`,
+          [gameId, toUser]
+        );
+      }
+    }
+
     return updatedInvite;
   }
 
   /** Given inviteId, deletes invite, updates db, and returns undefined
    *
    * @param {number} inviteId
-   * @returns {undefined}
+   * @returns {number} inviteId
    *
    * Throws NotFoundError if inviteId does not exist
    */

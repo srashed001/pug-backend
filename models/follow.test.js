@@ -25,6 +25,8 @@ describe(`getFollows(username)`, function () {
       {
         username: "test2",
         profileImg: "http://f2.img",
+        firstName: 'f2',
+        lastName: 'l2',
         city: "cc2",
         state: "cs2",
       },
@@ -54,12 +56,16 @@ describe(`getFollowers(username)`, function () {
       {
         username: "test2",
         profileImg: "http://f2.img",
+        firstName: 'f2',
+        lastName: 'l2',
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
         profileImg: "http://f4.img",
+        firstName: 'f4',
+        lastName: 'l4',
         city: "cc4",
         state: "cs4",
       },
@@ -88,12 +94,16 @@ describe(`toggle(follower, followed)`, function () {
     expect(followersBefore).toEqual([
       {
         username: "test2",
+        firstName: 'f2',
+        lastName: 'l2',
         profileImg: "http://f2.img",
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
+        firstName: 'f4',
+        lastName: 'l4',
         profileImg: "http://f4.img",
         city: "cc4",
         state: "cs4",
@@ -104,8 +114,8 @@ describe(`toggle(follower, followed)`, function () {
     const unfollowRes = await Follow.toggle("test2", "test1");
     expect(unfollowRes).toEqual({
       action: "unfollowed",
+      follower: "test2",
       followed: "test1",
-      following: "test2",
       followingProfileImg: "http://f2.img",
     });
 
@@ -113,6 +123,8 @@ describe(`toggle(follower, followed)`, function () {
     let followersAfter = await Follow.getFollowers("test1");
     expect(followersAfter).toEqual([
       {
+        firstName: 'f4',
+        lastName: 'l4',
         username: "test4",
         profileImg: "http://f4.img",
         city: "cc4",
@@ -124,8 +136,8 @@ describe(`toggle(follower, followed)`, function () {
     const followRes = await Follow.toggle("test2", "test1");
     expect(followRes).toEqual({
       action: "followed",
+      follower: "test2",
       followed: "test1",
-      following: "test2",
       followingProfileImg: "http://f2.img",
     });
 
@@ -133,12 +145,16 @@ describe(`toggle(follower, followed)`, function () {
     expect(reFollows).toEqual([
       {
         username: "test2",
+        firstName: 'f2',
+        lastName: 'l2',
         profileImg: "http://f2.img",
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
+        firstName: 'f4',
+        lastName: 'l4',
         profileImg: "http://f4.img",
         city: "cc4",
         state: "cs4",
@@ -152,12 +168,16 @@ describe(`toggle(follower, followed)`, function () {
     expect(followersBefore).toEqual([
       {
         username: "test2",
+        firstName: 'f2',
+        lastName: 'l2',
         profileImg: "http://f2.img",
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
+        firstName: 'f4',
+        lastName: 'l4',
         profileImg: "http://f4.img",
         city: "cc4",
         state: "cs4",
@@ -168,8 +188,8 @@ describe(`toggle(follower, followed)`, function () {
     const followRes = await Follow.toggle("test5", "test1");
     expect(followRes).toEqual({
       action: "followed",
+      follower: "test5",
       followed: "test1",
-      following: "test5",
       followingProfileImg: "http://f5.img",
     });
 
@@ -178,18 +198,24 @@ describe(`toggle(follower, followed)`, function () {
     expect(followersAfter).toEqual([
       {
         username: "test2",
+        firstName: 'f2',
+        lastName: 'l2',
         profileImg: "http://f2.img",
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
+        firstName: 'f4',
+        lastName: 'l4',
         profileImg: "http://f4.img",
         city: "cc4",
         state: "cs4",
       },
       {
         username: "test5",
+        firstName: 'f5',
+        lastName: 'l5',
         profileImg: "http://f5.img",
         city: "cc5",
         state: "cs5",
@@ -200,8 +226,8 @@ describe(`toggle(follower, followed)`, function () {
     const unfollowRes = await Follow.toggle("test5", "test1");
     expect(unfollowRes).toEqual({
       action: "unfollowed",
+      follower: "test5",
       followed: "test1",
-      following: "test5",
       followingProfileImg: "http://f5.img",
     });
 
@@ -210,12 +236,16 @@ describe(`toggle(follower, followed)`, function () {
     expect(unFollows).toEqual([
       {
         username: "test2",
+        firstName: 'f2',
+        lastName: 'l2',
         profileImg: "http://f2.img",
         city: "cc2",
         state: "cs2",
       },
       {
         username: "test4",
+        firstName: 'f4',
+        lastName: 'l4',
         profileImg: "http://f4.img",
         city: "cc4",
         state: "cs4",

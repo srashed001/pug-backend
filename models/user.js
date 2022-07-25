@@ -23,6 +23,20 @@ function InactiveMsg(username) {
 }
 
 class User {
+  /** Given a username, checks username availability and returns boolean
+   *
+   * @param {string} username
+   * @returns {boolean} is username taken?
+   *
+   */
+  static async checkUsername(username) {
+    const res = await db.query(
+      `SELECT username FROM users WHERE username = $1`,
+      [username]
+    );
+
+    return !!res.rows[0];
+  }
   /** Given a username, return data about user if user is_active.
    *
    * @param {string} username
@@ -30,35 +44,20 @@ class User {
    *                     first_name,
    *                     last_name,
    *                     birthDate,
+   *                     email,
    *                     city,
    *                     state,
    *                     profileImg,
    *                     createdOn,
    *                     isPrivate,
-   *                     following,
-   *                     followed }
-   *   where isFollowing/isFollowed is [username, ...]
+   *                     phoneNumber,
+   *                     isActive,
+   *                     isAdmin }
    *
    * Throws NotFoundError if user not found.
    * Throws InactiveError if user is inactive
    **/
   static async get(username) {
-    const followingQuery = `
-    SELECT array_remove(array_agg(f.followed_user), NULL ) AS "following"
-    FROM is_following AS f
-    LEFT JOIN users AS u
-    ON f.followed_user = u.username
-    WHERE f.following_user = $1 AND u.is_active = true
-    GROUP BY f.following_user`;
-
-    const followedQuery = `
-    SELECT array_remove(array_agg(f.following_user), NULL ) AS "followed" 
-    FROM is_following AS f
-    LEFT JOIN users AS u
-    ON f.following_user = u.username
-    WHERE followed_user = $1 AND u.is_active = true
-    GROUP BY f.followed_user`;
-
     const userRes = await db.query(
       `SELECT username, 
               first_name AS "firstName",
@@ -69,12 +68,10 @@ class User {
               profile_img AS "profileImg",
               created_on AS "createdOn",
               is_private AS "isPrivate",
-              is_active,
+              is_active AS "isActive",
               email, 
               is_admin AS "isAdmin",
-              phone_number AS "phoneNumber",
-              (${followedQuery}),
-              (${followingQuery})
+              phone_number AS "phoneNumber"
         FROM users 
         WHERE username = $1`,
       [username]
@@ -84,11 +81,7 @@ class User {
 
     if (!user) throw new NotFoundError(NotFoundMsg(username));
 
-    if (!user.is_active) throw new InactiveError(InactiveMsg(username));
-    delete user.is_active;
-
-    user.following = user.following ? user.following : [];
-    user.followed = user.followed ? user.followed : [];
+    if (!user.isActive) throw new InactiveError(InactiveMsg(username));
 
     return user;
   }
@@ -175,6 +168,7 @@ class User {
                        state,
                        phoneNumber,
                        password,
+                       profileImg,
                        email }
    *
    * @returns {object} {  username, isAdmin }
@@ -192,6 +186,7 @@ class User {
     phoneNumber,
     password,
     email,
+    profileImg,
   }) {
     const duplicateCheck = await db.query(
       `SELECT username 
@@ -207,8 +202,8 @@ class User {
 
     const userRes = await db.query(
       `INSERT INTO users 
-              (username, first_name, last_name, birth_date, current_city, current_state, phone_number, password, email)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              (username, first_name, last_name, birth_date, current_city, current_state, phone_number, password, email, profile_img)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
               RETURNING username,
                         is_admin AS "isAdmin"
                         `,
@@ -222,6 +217,7 @@ class User {
         phoneNumber,
         hashedPassword,
         email,
+        profileImg,
       ]
     );
 
@@ -259,9 +255,7 @@ class User {
    *                  createdOn,
    *                  email,
    *                  isPrivate,
-   *                  isAdmin,
-   *                  following
-   *                  followed }
+   *                  isAdmin}
    *
    * Throws NotFoundError if not found.
    *
@@ -319,32 +313,6 @@ class User {
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(NotFoundMsg(username));
-
-    const followRes = await db.query(
-      `SELECT
-      (SELECT array_remove(array_agg(f.followed_user), NULL ) AS "following"
-        FROM is_following AS f
-        LEFT JOIN users AS u
-        ON f.followed_user = u.username
-        WHERE f.following_user = $1 AND u.is_active = true
-        GROUP BY f.followed_user),
-
-        (SELECT array_remove(array_agg(f.following_user), NULL ) AS "followed"
-        FROM is_following AS f
-        LEFT JOIN users AS u
-        ON f.following_user = u.username
-        WHERE f.followed_user = $1 AND u.is_active = true
-        GROUP BY f.followed_user)
-        `,
-      [user.username]
-    );
-
-    user.following = followRes.rows[0].following
-      ? followRes.rows[0].following
-      : [];
-    user.followed = followRes.rows[0].followed
-      ? followRes.rows[0].followed
-      : [];
 
     return user;
   }

@@ -112,6 +112,7 @@ async function commonBeforeAll() {
   await db.query(`
         INSERT INTO is_following (followed_user, following_user)
         VALUES  ('test1', 'test2'),
+                ('test3', 'test2'),
                 ('test1', 'test4'),
                 ('test2', 'test1')
     `);
