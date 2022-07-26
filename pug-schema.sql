@@ -211,13 +211,4 @@ AFTER INSERT OR UPDATE OR DELETE ON users_invites
 
 
 
-SELECT primaryUser, secondaryUser, data, game, operation, stamp FROM games_activity
-UNION ALL
-SELECT primaryUser, secondaryUser, data, game, operation, stamp FROM users_games_activity
-UNION ALL
-SELECT primaryUser, secondaryUser, data, game, operation, stamp FROM games_comments_activity
-UNION ALL
-SELECT primaryUser, secondaryUser, data, game, operation, stamp FROM is_following_activity
-UNION ALL
-SELECT primaryUser, secondaryUser, data, game, operation, stamp FROM users_invites_activity;
 
